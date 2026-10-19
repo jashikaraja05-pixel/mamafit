@@ -2,7 +2,6 @@ import React, { useState } from 'react';
 import {
   Droplets,
   Plus,
-  Minus,
   Settings2,
   CheckCircle2,
   Sparkles,
@@ -10,14 +9,23 @@ import {
   Bell,
   Clock,
   History,
+  Volume2,
+  Moon,
+  ChevronRight,
 } from 'lucide-react';
 import { useMamaStore, mamaStore } from '../../store/useMamaStore';
-import { requestNotificationPermission, triggerLocalReminder, getNotificationPermission } from '../../utils/notifications';
+import { useHydrationScheduler } from '../../hooks/useHydrationScheduler';
+import { HydrationScheduleModal } from '../hydration/HydrationScheduleModal';
+import { formatTime12h } from '../../utils/hydrationScheduler';
 
 export const HydrationTrackerCard: React.FC = () => {
   const { profile, today, history } = useMamaStore();
+  const { schedule, countdownText, isInActiveWindow, triggerTest, snooze, toggleEnabled } =
+    useHydrationScheduler();
+
   const [isEditingGoal, setIsEditingGoal] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
+  const [showScheduleModal, setShowScheduleModal] = useState(false);
   const [customAmount, setCustomAmount] = useState('250');
   const [tempGoal, setTempGoal] = useState(profile.waterGoalMl || 2500);
   const [reminderNotice, setReminderNotice] = useState<string | null>(null);
@@ -43,20 +51,22 @@ export const HydrationTrackerCard: React.FC = () => {
     }
   };
 
-  const handleTestReminder = async () => {
-    await requestNotificationPermission();
-    triggerLocalReminder(
-      'Gentle Hydration Reminder',
-      'Take a gentle sip of cool water mama 💧 Your amniotic fluid and baby say thank you!'
-    );
-    setReminderNotice('Reminder sent! 🌸 (Check device notification or sound chime)');
+  const handleTestReminder = () => {
+    triggerTest();
+    setReminderNotice('Reminder sent! 🌸 Check your screen or hear the water chime.');
+    setTimeout(() => setReminderNotice(null), 3000);
+  };
+
+  const handleQuickSnooze = (minutes = 15) => {
+    snooze(minutes);
+    setReminderNotice(`Reminders snoozed for ${minutes} minutes ⏰`);
     setTimeout(() => setReminderNotice(null), 3000);
   };
 
   return (
     <div className="overflow-hidden rounded-3xl border border-[#f0dfea] bg-white p-5 shadow-soft transition-all hover:border-[#f075aa]/40 sm:p-6">
-      {/* Header with Title and Goal Action */}
-      <div className="flex items-center justify-between">
+      {/* Header with Title and Quick Actions */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div className="flex items-center gap-3">
           <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-sky-50 text-sky-500 shadow-xs">
             <Droplets className="h-6 w-6" />
@@ -74,19 +84,19 @@ export const HydrationTrackerCard: React.FC = () => {
               )}
             </div>
             <p className="text-xs text-[#745f78]">
-              Supports amniotic fluid replenishment, placenta delivery, and prevents leg cramps
+              Replenishes amniotic fluid, delivers placental nutrients, and prevents leg cramps
             </p>
           </div>
         </div>
 
         <div className="flex items-center gap-2">
           <button
-            onClick={handleTestReminder}
+            onClick={() => setShowScheduleModal(true)}
             className="flex items-center gap-1.5 rounded-2xl border border-sky-200 bg-sky-50 px-3 py-1.5 text-xs font-semibold text-sky-700 hover:bg-sky-100 transition-colors shadow-xs"
-            title="Send a sample hydration reminder"
+            title="Configure Hydration Reminders Schedule"
           >
-            <Bell className="h-3.5 w-3.5" />
-            <span className="hidden sm:inline">Remind Me</span>
+            <Clock className="h-3.5 w-3.5" />
+            <span>Schedule</span>
           </button>
 
           <button
@@ -107,12 +117,74 @@ export const HydrationTrackerCard: React.FC = () => {
         </div>
       </div>
 
+      {/* Reminder Notice Banner */}
       {reminderNotice && (
         <div className="mt-3 flex items-center gap-2 rounded-2xl border border-sky-200 bg-sky-50 p-2.5 text-xs font-semibold text-sky-800 animate-fadeIn">
           <Sparkles className="h-4 w-4 text-sky-600" />
           <span>{reminderNotice}</span>
         </div>
       )}
+
+      {/* 2. Hydration Reminder Status & Interval Strip */}
+      <div className="mt-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2.5 rounded-2xl border border-sky-100 bg-gradient-to-r from-sky-50/80 via-white to-sky-50/40 p-3 text-xs">
+        <div className="flex items-center gap-2.5">
+          <button
+            onClick={toggleEnabled}
+            className={`flex h-7 w-7 items-center justify-center rounded-xl transition-all ${
+              schedule.enabled
+                ? 'bg-sky-500 text-white shadow-xs'
+                : 'bg-slate-200 text-slate-400'
+            }`}
+            title={schedule.enabled ? 'Click to Pause Reminders' : 'Click to Enable Reminders'}
+          >
+            <Bell className="h-3.5 w-3.5" />
+          </button>
+
+          <div>
+            <div className="flex items-center gap-1.5">
+              <span className="font-bold text-sky-950">
+                {schedule.enabled ? `Reminding every ${schedule.intervalMinutes}m` : 'Reminders Paused'}
+              </span>
+              {schedule.enabled && (
+                <span className="rounded-full bg-sky-100 px-2 py-0.2 text-[10px] font-bold text-sky-800">
+                  {countdownText}
+                </span>
+              )}
+            </div>
+            <p className="text-[11px] text-[#745f78]">
+              {schedule.enabled
+                ? `Active ${formatTime12h(schedule.startTime)} – ${formatTime12h(schedule.endTime)} · Pauses at night`
+                : 'Tap to configure intervals & start gentle reminders'}
+            </p>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2 self-end sm:self-auto">
+          {schedule.enabled && (
+            <button
+              onClick={() => handleQuickSnooze(15)}
+              className="rounded-xl border border-sky-200 bg-white px-2.5 py-1 text-[11px] font-semibold text-sky-700 hover:bg-sky-50 transition-colors shadow-2xs"
+            >
+              Snooze 15m
+            </button>
+          )}
+
+          <button
+            onClick={handleTestReminder}
+            className="rounded-xl border border-sky-200 bg-white px-2.5 py-1 text-[11px] font-semibold text-sky-700 hover:bg-sky-50 transition-colors shadow-2xs"
+          >
+            Test Now
+          </button>
+
+          <button
+            onClick={() => setShowScheduleModal(true)}
+            className="flex items-center text-[11px] font-bold text-sky-700 hover:text-sky-900"
+          >
+            <span>Settings</span>
+            <ChevronRight className="h-3.5 w-3.5" />
+          </button>
+        </div>
+      </div>
 
       {/* Inline Goal Setting Form */}
       {isEditingGoal && (
@@ -337,6 +409,12 @@ export const HydrationTrackerCard: React.FC = () => {
           )}
         </div>
       )}
+
+      {/* Hydration Schedule Modal */}
+      <HydrationScheduleModal
+        isOpen={showScheduleModal}
+        onClose={() => setShowScheduleModal(false)}
+      />
     </div>
   );
 };

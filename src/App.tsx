@@ -10,10 +10,14 @@ import { ProfilePage } from './pages/ProfilePage';
 import { MedicalDisclaimerModal } from './components/common/MedicalDisclaimerModal';
 import { GitHubExportModal } from './components/common/GitHubExportModal';
 import { OnboardingModal } from './components/common/OnboardingModal';
+import { HydrationReminderToast } from './components/common/HydrationReminderToast';
 import { useMamaStore } from './store/useMamaStore';
+import { useHydrationScheduler } from './hooks/useHydrationScheduler';
 
 export default function App() {
   const { profile } = useMamaStore();
+  // Activate global background hydration scheduler
+  useHydrationScheduler();
 
   // Read initial tab from URL hash if present
   const getInitialTab = (): string => {
@@ -95,6 +99,9 @@ export default function App() {
         isOpen={showOnboarding}
         onComplete={() => setShowOnboarding(false)}
       />
+
+      {/* In-App Interactive Hydration Reminder Toast */}
+      <HydrationReminderToast />
     </div>
   );
 }

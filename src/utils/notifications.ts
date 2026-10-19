@@ -42,6 +42,46 @@ export function playGentleReminderSound() {
   }
 }
 
+/**
+ * Pleasant, soothing dual-droplet water chime for hydration reminders
+ */
+export function playWaterChime() {
+  if (typeof window === 'undefined') return;
+  try {
+    const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+    if (!AudioCtx) return;
+    const ctx = new AudioCtx();
+
+    // Droplet 1 (High soft ping)
+    const osc1 = ctx.createOscillator();
+    const gain1 = ctx.createGain();
+    osc1.type = 'sine';
+    osc1.frequency.setValueAtTime(659.25, ctx.currentTime); // E5
+    osc1.frequency.exponentialRampToValueAtTime(880, ctx.currentTime + 0.15); // A5
+    gain1.gain.setValueAtTime(0.12, ctx.currentTime);
+    gain1.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.35);
+    osc1.connect(gain1);
+    gain1.connect(ctx.destination);
+    osc1.start(ctx.currentTime);
+    osc1.stop(ctx.currentTime + 0.35);
+
+    // Droplet 2 (Harmonic echo)
+    const osc2 = ctx.createOscillator();
+    const gain2 = ctx.createGain();
+    osc2.type = 'sine';
+    osc2.frequency.setValueAtTime(880, ctx.currentTime + 0.18);
+    osc2.frequency.exponentialRampToValueAtTime(1046.5, ctx.currentTime + 0.32); // C6
+    gain2.gain.setValueAtTime(0.09, ctx.currentTime + 0.18);
+    gain2.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.55);
+    osc2.connect(gain2);
+    gain2.connect(ctx.destination);
+    osc2.start(ctx.currentTime + 0.18);
+    osc2.stop(ctx.currentTime + 0.55);
+  } catch {
+    // Ignore audio restrictions
+  }
+}
+
 export function triggerLocalReminder(title: string, body: string, icon = '🌸') {
   playGentleReminderSound();
 

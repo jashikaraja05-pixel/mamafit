@@ -31,6 +31,21 @@ export interface MamaProfile {
   appointments?: AppointmentItem[];
   mealPlan?: MealPlanDay[];
   notificationsEnabled?: boolean;
+  hydrationSchedule?: HydrationScheduleConfig;
+}
+
+export interface HydrationScheduleConfig {
+  enabled: boolean;
+  intervalMinutes: number; // e.g., 30, 45, 60, 90, 120, 180
+  startTime: string; // "08:00"
+  endTime: string; // "21:30"
+  soundEnabled: boolean;
+  browserNotificationEnabled: boolean;
+  inAppToastEnabled: boolean;
+  lastReminderTime?: string; // ISO timestamp
+  nextReminderTime?: string; // ISO timestamp
+  reminderCountToday: number;
+  snoozedUntil?: string; // ISO timestamp
 }
 
 export interface MealItem {

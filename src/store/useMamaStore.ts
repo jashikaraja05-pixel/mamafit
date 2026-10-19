@@ -8,6 +8,7 @@ import {
   MealPlanDay,
   AppointmentItem,
   WalkingSession,
+  HydrationScheduleConfig,
 } from '../types';
 
 const STORE_KEY = 'mamafit-store-v4';
@@ -136,6 +137,17 @@ export const INITIAL_APPOINTMENTS: AppointmentItem[] = [
   },
 ];
 
+export const INITIAL_HYDRATION_SCHEDULE: HydrationScheduleConfig = {
+  enabled: true,
+  intervalMinutes: 60, // Every 1 hour
+  startTime: '08:00', // 8:00 AM
+  endTime: '21:30', // 9:30 PM (pauses during mama sleep)
+  soundEnabled: true,
+  browserNotificationEnabled: true,
+  inAppToastEnabled: true,
+  reminderCountToday: 0,
+};
+
 export const INITIAL_PROFILE: MamaProfile = {
   name: '',
   babyNickname: '',
@@ -168,6 +180,7 @@ export const INITIAL_PROFILE: MamaProfile = {
   appointments: INITIAL_APPOINTMENTS,
   mealPlan: INITIAL_MEAL_PLAN,
   notificationsEnabled: true,
+  hydrationSchedule: INITIAL_HYDRATION_SCHEDULE,
 };
 
 export const INITIAL_REMINDERS: Reminder[] = [
@@ -212,7 +225,14 @@ function loadSavedState(): AppState {
       }
 
       return {
-        profile: { ...INITIAL_PROFILE, ...(parsed.profile || {}) },
+        profile: {
+          ...INITIAL_PROFILE,
+          ...(parsed.profile || {}),
+          hydrationSchedule: {
+            ...INITIAL_HYDRATION_SCHEDULE,
+            ...(parsed.profile?.hydrationSchedule || {}),
+          },
+        },
         today: today || createInitialToday(),
         history,
         reminders: parsed.reminders || INITIAL_REMINDERS,
@@ -253,6 +273,54 @@ export const mamaStore = {
     globalState = {
       ...globalState,
       profile: { ...globalState.profile, ...updates },
+    };
+    notify();
+  },
+
+  setHydrationSchedule: (updates: Partial<HydrationScheduleConfig>) => {
+    const currentSchedule = globalState.profile.hydrationSchedule || INITIAL_HYDRATION_SCHEDULE;
+    globalState = {
+      ...globalState,
+      profile: {
+        ...globalState.profile,
+        hydrationSchedule: { ...currentSchedule, ...updates },
+      },
+    };
+    notify();
+  },
+
+  snoozeHydration: (minutes: number) => {
+    const currentSchedule = globalState.profile.hydrationSchedule || INITIAL_HYDRATION_SCHEDULE;
+    const snoozeTime = new Date(Date.now() + minutes * 60 * 1000).toISOString();
+    globalState = {
+      ...globalState,
+      profile: {
+        ...globalState.profile,
+        hydrationSchedule: {
+          ...currentSchedule,
+          snoozedUntil: snoozeTime,
+          nextReminderTime: snoozeTime,
+        },
+      },
+    };
+    notify();
+  },
+
+  recordHydrationReminderTriggered: () => {
+    const currentSchedule = globalState.profile.hydrationSchedule || INITIAL_HYDRATION_SCHEDULE;
+    const nextTime = new Date(Date.now() + (currentSchedule.intervalMinutes || 60) * 60 * 1000).toISOString();
+    globalState = {
+      ...globalState,
+      profile: {
+        ...globalState.profile,
+        hydrationSchedule: {
+          ...currentSchedule,
+          lastReminderTime: new Date().toISOString(),
+          nextReminderTime: nextTime,
+          snoozedUntil: undefined,
+          reminderCountToday: (currentSchedule.reminderCountToday || 0) + 1,
+        },
+      },
     };
     notify();
   },

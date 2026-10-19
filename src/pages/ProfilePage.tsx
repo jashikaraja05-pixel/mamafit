@@ -13,11 +13,14 @@ import {
   GitBranch,
   ShieldAlert,
   Bell,
+  Clock,
+  Droplets,
   Filter,
 } from 'lucide-react';
 import { useMamaStore, mamaStore } from '../store/useMamaStore';
 import { PrenatalCareCenter } from '../components/care/PrenatalCareCenter';
 import { PregnancyGuide } from '../components/guide/PregnancyGuide';
+import { HydrationScheduleModal } from '../components/hydration/HydrationScheduleModal';
 import { requestNotificationPermission, triggerLocalReminder } from '../utils/notifications';
 
 interface ProfilePageProps {
@@ -47,6 +50,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
   const [activeSubTab, setActiveSubTab] = useState<'profile' | 'care' | 'guide'>('profile');
   const [savedNotice, setSavedNotice] = useState(false);
   const [calcNotice, setCalcNotice] = useState<string | null>(null);
+  const [showHydrationModal, setShowHydrationModal] = useState(false);
 
   // Compute gestational weight gain if values exist
   const numWeight = Number(weightKg) || 0;
@@ -389,8 +393,38 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
               </div>
             </div>
 
+            {/* Hydration Reminder Scheduling */}
+            <div className="mt-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 rounded-2xl border border-sky-200 bg-sky-50/60 p-3.5 text-xs">
+              <div className="flex items-center gap-3">
+                <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-sky-500 text-white shadow-xs">
+                  <Droplets className="h-5 w-5" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="font-bold text-sky-950">Hydration Interval Reminders</span>
+                    <span className="rounded-full bg-sky-100 px-2 py-0.5 text-[10px] font-bold text-sky-800">
+                      {profile.hydrationSchedule?.enabled !== false
+                        ? `Every ${profile.hydrationSchedule?.intervalMinutes || 60}m`
+                        : 'Paused'}
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-[#745f78]">
+                    Periodic daytime alerts to drink water with gentle chimes and sleep protection
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowHydrationModal(true)}
+                className="flex items-center justify-center gap-1.5 rounded-xl bg-sky-600 px-3.5 py-2 font-bold text-white hover:bg-sky-700 transition-colors shadow-xs"
+              >
+                <Clock className="h-3.5 w-3.5" />
+                <span>Configure Schedule</span>
+              </button>
+            </div>
+
             {/* Notification Permission Test */}
-            <div className="mt-5 flex items-center justify-between rounded-2xl border border-[#f0dfea] bg-[#fff8fb] p-3 text-xs">
+            <div className="mt-3 flex items-center justify-between rounded-2xl border border-[#f0dfea] bg-[#fff8fb] p-3 text-xs">
               <div className="flex items-center gap-2">
                 <Bell className="h-4 w-4 text-[#f075aa]" />
                 <span className="font-semibold text-[#231426]">Local Browser Notification Permissions</span>
@@ -415,6 +449,12 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({
           </div>
         </form>
       )}
+
+      {/* Hydration Schedule Configuration Modal */}
+      <HydrationScheduleModal
+        isOpen={showHydrationModal}
+        onClose={() => setShowHydrationModal(false)}
+      />
 
       {/* 2. Export Data & Health Log for Doctor */}
       <div className="rounded-3xl border border-[#f0dfea] bg-white p-5 shadow-soft sm:p-7">
