@@ -1,0 +1,6 @@
+{
+  "name": "MamaFit AI – Pregnancy Wellness Companion",
+  "description": "Your AI-powered pregnancy wellness companion. Track hydration, nutrition, safe exercises, fetal activity, and get gentle trimester-aware guidance.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
