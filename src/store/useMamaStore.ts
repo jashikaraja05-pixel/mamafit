@@ -1,5 +1,14 @@
 import { useState, useEffect } from 'react';
-import { MamaProfile, TodayData, MealItem, Reminder, KickRecord } from '../types';
+import {
+  MamaProfile,
+  TodayData,
+  MealItem,
+  Reminder,
+  KickRecord,
+  MealPlanDay,
+  AppointmentItem,
+  WalkingSession,
+} from '../types';
 
 const STORE_KEY = 'mamafit-store-v4';
 
@@ -23,10 +32,109 @@ export function createInitialToday(): TodayData {
       folate: false,
       iron: false,
       dha: false,
+      calcium: false,
     },
     symptoms: [],
+    waterLogs: [],
+    walkingSessions: [],
+    completedChecklistIds: [],
   };
 }
+
+export const INITIAL_MEAL_PLAN: MealPlanDay[] = [
+  {
+    day: 'Mon',
+    label: 'Monday',
+    breakfast: 'Warm Oatmeal with Chia, Blueberries & Almonds',
+    lunch: 'Steamed Idli (3) with Drumstick (Murungai) Sambar & Mint Chutney',
+    snack: 'Sundal (Spiced Chickpeas) with Mor (Spiced Buttermilk)',
+    dinner: 'Moong Dal Khichdi with Steamed Spinach & a teaspoon of Ghee',
+  },
+  {
+    day: 'Tue',
+    label: 'Tuesday',
+    breakfast: 'Pasteurized Scrambled Eggs with Sourdough & Tomato Slices',
+    lunch: 'Brown Rice with Palak Paneer & Carrot-Cucumber Kosumalli Salad',
+    snack: 'Greek Yogurt with Sliced Strawberries & Roasted Walnuts',
+    dinner: 'Well-cooked Salmon Fillet with Quinoa & Steamed Asparagus',
+  },
+  {
+    day: 'Wed',
+    label: 'Wednesday',
+    breakfast: 'Ragi (Finger Millet) Porridge / Koozh with Warm Milk & Almonds',
+    lunch: 'Whole Wheat Dosa with Coconut-Coriander Chutney & Lentil Stew',
+    snack: 'Makhana (Roasted Lotus Seeds) & a juicy Orange (Vit C for Iron)',
+    dinner: 'Grilled Herb Chicken (or Tofu) Breast with Sweet Potato Mash',
+  },
+  {
+    day: 'Thu',
+    label: 'Thursday',
+    breakfast: 'Avocado Whole-Grain Toast with Soft-Boiled Pasteurized Egg',
+    lunch: 'Curd Rice with Pomegranate Arils & Steamed Beetroot Poriyal',
+    snack: 'Warm Spiced Badam Milk & a ripe Banana',
+    dinner: 'Lentil Soup (Parippu) with Jeera Rice & Steamed Beans Poriyal',
+  },
+  {
+    day: 'Fri',
+    label: 'Friday',
+    breakfast: 'Vegetable Upma with Roasted Cashews & Ginger-Lemon Warm Water',
+    lunch: 'Paneer Tikka Bowl with Quinoa, Mixed Greens & Tahini Dressing',
+    snack: 'Boiled Sweet Corn with Lemon Juice & a sprinkle of Chaat Masala',
+    dinner: 'Cooked Pomfret / Fish Curry with Matta Rice & Cabbage Thoran',
+  },
+  {
+    day: 'Sat',
+    label: 'Saturday',
+    breakfast: 'Multigrain Pancakes with Pure Maple Syrup & Fresh Raspberries',
+    lunch: 'Mixed Vegetable Pulao with Cucumber Raita & Boiled Egg',
+    snack: 'Roasted Chana (Chickpeas) & tender Coconut Water',
+    dinner: 'Whole Wheat Chapati (2) with Dal Makhani (low cream) & Salad',
+  },
+  {
+    day: 'Sun',
+    label: 'Sunday',
+    breakfast: 'Moong Dal Cheela (Pancakes) with Fresh Tomato Chutney',
+    lunch: 'South Indian Sunday Thali: Rice, Rasam, Keerai Kootu & Curd',
+    snack: 'Fruit Salad (Apple, Guava, Kiwi) with Chia Seeds',
+    dinner: 'Baked Herb Sweet Potato with Cottage Cheese & Steamed Broccoli',
+  },
+];
+
+export const INITIAL_APPOINTMENTS: AppointmentItem[] = [
+  {
+    id: 'apt-1',
+    title: 'Mid-Pregnancy Anatomy Ultrasound (Level II)',
+    provider: 'Dr. Sarah Mitchell, MD (OB-GYN)',
+    date: '2026-11-12',
+    time: '10:00 AM',
+    location: 'Maternal Fetal Medicine Suite 4B',
+    notes: 'Comprehensive ultrasound to evaluate baby growth, amniotic fluid, and fetal spine/organs.',
+    type: 'ultrasound',
+    completed: false,
+  },
+  {
+    id: 'apt-2',
+    title: 'Routine 4-Week Prenatal Checkup',
+    provider: 'Midwife Elena Vance, CNM',
+    date: '2026-11-26',
+    time: '02:30 PM',
+    location: 'Family Maternity Clinic Room 12',
+    notes: 'Maternal blood pressure check, urine protein screen, and Doppler fetal heartbeat check.',
+    type: 'routine',
+    completed: false,
+  },
+  {
+    id: 'apt-3',
+    title: 'Glucose Tolerance Test (Gestational Diabetes Screen)',
+    provider: 'Clinical Laboratory Services',
+    date: '2026-12-10',
+    time: '09:00 AM',
+    location: 'Outpatient Lab Wing',
+    notes: 'Drink Glucola beverage and test 1-hour blood glucose level. Fasting required as advised.',
+    type: 'glucose',
+    completed: false,
+  },
+];
 
 export const INITIAL_PROFILE: MamaProfile = {
   name: '',
@@ -48,13 +156,28 @@ export const INITIAL_PROFILE: MamaProfile = {
   exerciseGoalMin: 30,
   sleepGoalHours: 8,
   theme: 'light',
+  dietaryPreferences: {
+    vegetarian: false,
+    vegan: false,
+    nonVegetarian: true,
+    tamilTraditional: true,
+    dairyFree: false,
+    nutFree: false,
+    glutenFree: false,
+  },
+  appointments: INITIAL_APPOINTMENTS,
+  mealPlan: INITIAL_MEAL_PLAN,
+  notificationsEnabled: true,
 };
 
 export const INITIAL_REMINDERS: Reminder[] = [
-  { id: 'r1', time: '08:30', enabled: true, label: 'Morning Hydration & Prenatal Vitamin' },
-  { id: 'r2', time: '12:30', enabled: true, label: 'Lunchtime Glass of Water' },
-  { id: 'r3', time: '16:00', enabled: true, label: 'Gentle Afternoon Stretch & Sip' },
-  { id: 'r4', time: '20:30', enabled: true, label: 'Evening Water & Kegel Practice' },
+  { id: 'r1', time: '08:30', enabled: true, label: 'Morning Hydration & Prenatal Vitamin', category: 'water' },
+  { id: 'r2', time: '10:30', enabled: true, label: 'Gentle Stroll & Posture Check', category: 'walk' },
+  { id: 'r3', time: '12:30', enabled: true, label: 'Nutritious Lunch & Water Glass', category: 'meal' },
+  { id: 'r4', time: '15:30', enabled: true, label: 'Afternoon Hydration & Healthy Snack', category: 'water' },
+  { id: 'r5', time: '17:30', enabled: true, label: 'Prenatal Stretching & Breathing Flow', category: 'exercise' },
+  { id: 'r6', time: '20:30', enabled: true, label: 'Evening Pelvic Floor Kegels & Water Sip', category: 'exercise' },
+  { id: 'r7', time: '21:30', enabled: true, label: 'Restful Left-Side Sleep Preparation', category: 'rest' },
 ];
 
 export interface AppState {
@@ -137,9 +260,18 @@ export const mamaStore = {
   addWater: (ml: number) => {
     const newWater = Math.max(0, globalState.today.waterMl + ml);
     const wasZero = globalState.today.waterMl === 0 && newWater > 0;
+    const logEntry = {
+      id: `w-${Date.now()}-${Math.random().toString(36).slice(2, 5)}`,
+      amountMl: ml,
+      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+    };
     globalState = {
       ...globalState,
-      today: { ...globalState.today, waterMl: newWater },
+      today: {
+        ...globalState.today,
+        waterMl: newWater,
+        waterLogs: [...(globalState.today.waterLogs || []), logEntry],
+      },
       streak: wasZero && globalState.streak === 0 ? 1 : globalState.streak,
     };
     notify();
@@ -148,7 +280,7 @@ export const mamaStore = {
   resetWater: () => {
     globalState = {
       ...globalState,
-      today: { ...globalState.today, waterMl: 0 },
+      today: { ...globalState.today, waterMl: 0, waterLogs: [] },
     };
     notify();
   },
@@ -158,6 +290,37 @@ export const mamaStore = {
     globalState = {
       ...globalState,
       today: { ...globalState.today, steps: newSteps },
+      streak: globalState.streak === 0 ? 1 : globalState.streak,
+    };
+    notify();
+  },
+
+  setStepsManually: (steps: number) => {
+    const newSteps = Math.max(0, steps);
+    globalState = {
+      ...globalState,
+      today: { ...globalState.today, steps: newSteps },
+      streak: globalState.streak === 0 && newSteps > 0 ? 1 : globalState.streak,
+    };
+    notify();
+  },
+
+  addWalkingSession: (session: Omit<WalkingSession, 'id' | 'timestamp'>) => {
+    const newSession: WalkingSession = {
+      ...session,
+      id: `walk-${Date.now()}`,
+      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+    };
+    const addedMin = Math.round(session.durationSec / 60);
+    const updatedSessions = [...(globalState.today.walkingSessions || []), newSession];
+    globalState = {
+      ...globalState,
+      today: {
+        ...globalState.today,
+        steps: globalState.today.steps + session.steps,
+        exerciseMin: globalState.today.exerciseMin + addedMin,
+        walkingSessions: updatedSessions,
+      },
       streak: globalState.streak === 0 ? 1 : globalState.streak,
     };
     notify();
@@ -293,6 +456,85 @@ export const mamaStore = {
     globalState = {
       ...globalState,
       reminders: [...globalState.reminders, newRem],
+    };
+    notify();
+  },
+
+  addAppointment: (apt: Omit<AppointmentItem, 'id'>) => {
+    const newApt: AppointmentItem = {
+      ...apt,
+      id: `apt-${Date.now()}`,
+    };
+    const currentApts = globalState.profile.appointments || [];
+    globalState = {
+      ...globalState,
+      profile: {
+        ...globalState.profile,
+        appointments: [...currentApts, newApt].sort((a, b) => a.date.localeCompare(b.date)),
+      },
+    };
+    notify();
+  },
+
+  toggleAppointment: (id: string) => {
+    const currentApts = globalState.profile.appointments || [];
+    globalState = {
+      ...globalState,
+      profile: {
+        ...globalState.profile,
+        appointments: currentApts.map((a) => (a.id === id ? { ...a, completed: !a.completed } : a)),
+      },
+    };
+    notify();
+  },
+
+  deleteAppointment: (id: string) => {
+    const currentApts = globalState.profile.appointments || [];
+    globalState = {
+      ...globalState,
+      profile: {
+        ...globalState.profile,
+        appointments: currentApts.filter((a) => a.id !== id),
+      },
+    };
+    notify();
+  },
+
+  toggleChecklistItem: (itemId: string) => {
+    const current = globalState.today.completedChecklistIds || [];
+    const exists = current.includes(itemId);
+    const updated = exists ? current.filter((id) => id !== itemId) : [...current, itemId];
+    globalState = {
+      ...globalState,
+      today: {
+        ...globalState.today,
+        completedChecklistIds: updated,
+      },
+    };
+    notify();
+  },
+
+  updateMealPlanDay: (day: MealPlanDay['day'], updates: Partial<MealPlanDay>) => {
+    const currentPlan = globalState.profile.mealPlan || INITIAL_MEAL_PLAN;
+    const updatedPlan = currentPlan.map((d) => (d.day === day ? { ...d, ...updates } : d));
+    globalState = {
+      ...globalState,
+      profile: {
+        ...globalState.profile,
+        mealPlan: updatedPlan,
+      },
+    };
+    notify();
+  },
+
+  updateDietaryPreferences: (prefs: Partial<NonNullable<MamaProfile['dietaryPreferences']>>) => {
+    const current = globalState.profile.dietaryPreferences || INITIAL_PROFILE.dietaryPreferences!;
+    globalState = {
+      ...globalState,
+      profile: {
+        ...globalState.profile,
+        dietaryPreferences: { ...current, ...prefs },
+      },
     };
     notify();
   },

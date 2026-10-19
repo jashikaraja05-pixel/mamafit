@@ -202,16 +202,20 @@ async function startServer() {
   const httpServer = http.createServer(app);
 
   if (process.env.NODE_ENV !== 'production') {
-    const isHmrDisabled = process.env.DISABLE_HMR === 'true';
+    const isHttps =
+      process.env.APP_URL?.startsWith('https') ||
+      process.env.PORT === '8080' ||
+      process.env.NGINX_PORT === '8080' ||
+      Boolean(process.env.K_SERVICE);
+
     const vite = await createViteServer({
       server: {
         middlewareMode: true,
         // Bind Vite HMR WebSocket server directly to the Node.js httpServer
-        hmr: isHmrDisabled
-          ? false
-          : {
-              server: httpServer,
-            },
+        hmr: {
+          server: httpServer,
+          clientPort: isHttps ? 443 : undefined,
+        },
       },
       appType: 'spa',
     });

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   Droplets,
   Footprints,
@@ -12,11 +12,17 @@ import {
   Calendar,
   Smile,
   Baby,
+  Clock,
+  ShieldAlert,
+  Play,
+  BookOpen,
 } from 'lucide-react';
 import { useMamaStore, mamaStore } from '../store/useMamaStore';
 import { getWeekGrowth } from '../data/pregnancyWeeks';
 import { ProgressRing } from '../components/common/ProgressRing';
 import { HydrationTrackerCard } from '../components/home/HydrationTrackerCard';
+import { PregnancyGuide } from '../components/guide/PregnancyGuide';
+import { PrenatalCareCenter } from '../components/care/PrenatalCareCenter';
 import logoImg from '../assets/logo.png';
 
 interface HomePageProps {
@@ -25,6 +31,8 @@ interface HomePageProps {
 
 export const HomePage: React.FC<HomePageProps> = ({ onNavigate }) => {
   const { profile, today, streak } = useMamaStore();
+  const [showWeekGuideModal, setShowWeekGuideModal] = useState(false);
+  const [showCareModal, setShowCareModal] = useState(false);
 
   const week = profile.pregnancyWeek || 16;
   const growth = getWeekGrowth(week);
@@ -82,6 +90,10 @@ export const HomePage: React.FC<HomePageProps> = ({ onNavigate }) => {
 
   const totalCalories = today.meals.reduce((acc, m) => acc + m.cal, 0);
 
+  // Next upcoming appointment
+  const upcomingAppointments = (profile.appointments || []).filter((a) => !a.completed);
+  const nextApt = upcomingAppointments[0];
+
   return (
     <div className="space-y-6 pb-24">
       {/* 1. Header Greeting & Full Brand Showcase */}
@@ -112,16 +124,24 @@ export const HomePage: React.FC<HomePageProps> = ({ onNavigate }) => {
 
         <div className="flex items-center gap-2">
           <button
+            onClick={() => setShowCareModal(true)}
+            className="flex items-center gap-1.5 rounded-2xl border border-rose-200 bg-rose-50/70 px-3.5 py-2 text-xs font-semibold text-rose-800 hover:bg-rose-100 transition-all shadow-xs"
+          >
+            <ShieldAlert className="h-4 w-4 text-rose-600" />
+            <span>Care & Safety</span>
+          </button>
+
+          <button
             onClick={() => onNavigate('profile')}
             className="flex items-center gap-2 rounded-2xl border border-[#f0dfea] bg-white px-3.5 py-2 text-xs font-semibold text-[#231426] shadow-xs hover:border-[#f075aa] transition-all"
           >
             <Sparkles className="h-4 w-4 text-[#f075aa]" />
-            <span>{streak > 0 ? `${streak} Day Streak` : 'Start Streak Today'}</span>
+            <span>{streak > 0 ? `${streak} Day Streak` : 'Start Streak'}</span>
           </button>
         </div>
       </div>
 
-      {/* 2. Hero Baby Growth & Week Card with Logo Art */}
+      {/* 2. Hero Baby Growth & Week Card with Logo Art + Week-by-Week Guide Launcher */}
       <div className="relative overflow-hidden rounded-3xl border border-[#f0dfea] bg-gradient-to-br from-[#fff2f7] via-white to-[#fbf0ff] p-5 shadow-soft sm:p-7">
         <div className="pointer-events-none absolute -right-12 -top-12 h-44 w-44 rounded-full bg-[#f075aa]/15 blur-3xl" />
         <div className="pointer-events-none absolute -bottom-10 left-10 h-36 w-36 rounded-full bg-[#c1a9ee]/15 blur-2xl" />
@@ -165,6 +185,17 @@ export const HomePage: React.FC<HomePageProps> = ({ onNavigate }) => {
                 </div>
               )}
             </div>
+
+            <div className="pt-2">
+              <button
+                onClick={() => setShowWeekGuideModal(true)}
+                className="flex items-center gap-2 rounded-2xl bg-white px-4 py-2 text-xs font-bold text-[#f075aa] border border-[#f0dfea] shadow-xs hover:border-[#f075aa] transition-all"
+              >
+                <BookOpen className="h-4 w-4" />
+                <span>Explore Complete Weeks 1–40 Guide</span>
+                <ChevronRight className="h-3.5 w-3.5" />
+              </button>
+            </div>
           </div>
 
           {/* Daily Health Progress Ring */}
@@ -193,10 +224,36 @@ export const HomePage: React.FC<HomePageProps> = ({ onNavigate }) => {
         </div>
       </div>
 
-      {/* 3. New Dedicated Hydration Tracker Component with Daily Progress Bar & Goal Setting */}
+      {/* 3. Next Upcoming Prenatal Appointment Banner (if present) */}
+      {nextApt && (
+        <div
+          onClick={() => setShowCareModal(true)}
+          className="flex cursor-pointer items-center justify-between rounded-3xl border border-purple-200 bg-purple-50/50 p-4 transition-all hover:border-purple-300 hover:shadow-soft"
+        >
+          <div className="flex items-center gap-3">
+            <span className="flex h-10 w-10 items-center justify-center rounded-2xl bg-purple-100 text-purple-700">
+              <Calendar className="h-5 w-5" />
+            </span>
+            <div>
+              <span className="text-[10px] font-bold uppercase tracking-wider text-purple-700">
+                Next Prenatal Visit
+              </span>
+              <h4 className="text-sm font-bold text-[#231426]">{nextApt.title}</h4>
+              <p className="text-xs text-[#745f78]">
+                {nextApt.provider} · <strong>{nextApt.date}</strong> at {nextApt.time}
+              </p>
+            </div>
+          </div>
+          <span className="flex items-center text-xs font-semibold text-purple-700">
+            View Details <ChevronRight className="h-4 w-4 ml-0.5" />
+          </span>
+        </div>
+      )}
+
+      {/* 4. Hydration Tracker Component with Daily Progress & Quick Log */}
       <HydrationTrackerCard />
 
-      {/* 4. Core Daily Metric Cards */}
+      {/* 5. Core Daily Metric Cards */}
       <div className="grid grid-cols-2 gap-3.5 sm:gap-4 md:grid-cols-4">
         {/* Hydration */}
         <div
@@ -235,7 +292,7 @@ export const HomePage: React.FC<HomePageProps> = ({ onNavigate }) => {
           </div>
         </div>
 
-        {/* Steps / Movement */}
+        {/* Steps / Movement with Sensor indicator */}
         <div
           onClick={() => onNavigate('activity')}
           className="group cursor-pointer rounded-3xl border border-[#f0dfea] bg-white p-4 shadow-xs transition-all hover:border-[#f075aa]/50 hover:shadow-soft"
@@ -331,7 +388,52 @@ export const HomePage: React.FC<HomePageProps> = ({ onNavigate }) => {
         </div>
       </div>
 
-      {/* 4. Today's Mood Check-in */}
+      {/* 6. Quick Launch Interval Timer & Walking Sessions */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+        <div
+          onClick={() => onNavigate('exercise')}
+          className="group flex cursor-pointer items-center justify-between rounded-3xl border border-[#f0dfea] bg-white p-4 shadow-xs transition-all hover:border-[#f075aa] hover:shadow-soft"
+        >
+          <div className="flex items-center gap-3">
+            <span className="flex h-10 w-10 items-center justify-center rounded-2xl bg-[#fff0f6] text-[#f075aa]">
+              <Clock className="h-5 w-5" />
+            </span>
+            <div>
+              <span className="rounded-full bg-[#f075aa]/15 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider text-[#e04586]">
+                New Feature
+              </span>
+              <h4 className="text-sm font-bold text-[#231426]">Safe Interval Timer</h4>
+              <p className="text-[11px] text-[#745f78]">Paced work & rest intervals with audio chimes</p>
+            </div>
+          </div>
+          <span className="flex items-center text-xs font-semibold text-[#f075aa]">
+            Start <ChevronRight className="h-4 w-4 ml-0.5" />
+          </span>
+        </div>
+
+        <div
+          onClick={() => onNavigate('activity')}
+          className="group flex cursor-pointer items-center justify-between rounded-3xl border border-[#f0dfea] bg-white p-4 shadow-xs transition-all hover:border-amber-400 hover:shadow-soft"
+        >
+          <div className="flex items-center gap-3">
+            <span className="flex h-10 w-10 items-center justify-center rounded-2xl bg-amber-50 text-amber-600">
+              <Footprints className="h-5 w-5" />
+            </span>
+            <div>
+              <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider text-amber-800">
+                Pedometer
+              </span>
+              <h4 className="text-sm font-bold text-[#231426]">Live Walking Tracker</h4>
+              <p className="text-[11px] text-[#745f78]">Automatic step sensor or manual entry</p>
+            </div>
+          </div>
+          <span className="flex items-center text-xs font-semibold text-amber-700">
+            Track <ChevronRight className="h-4 w-4 ml-0.5" />
+          </span>
+        </div>
+      </div>
+
+      {/* 7. Mood Check-in */}
       <div className="rounded-3xl border border-[#f0dfea] bg-white p-5 shadow-xs sm:p-6">
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2">
@@ -372,7 +474,7 @@ export const HomePage: React.FC<HomePageProps> = ({ onNavigate }) => {
         </div>
       </div>
 
-      {/* 5. Today's Gentle Routine & Prenatal Checklist */}
+      {/* 8. Today's Gentle Routine & Prenatal Checklist */}
       <div className="rounded-3xl border border-[#f0dfea] bg-white p-5 shadow-xs sm:p-6">
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-2">
@@ -487,7 +589,7 @@ export const HomePage: React.FC<HomePageProps> = ({ onNavigate }) => {
         </div>
       </div>
 
-      {/* 6. Ask MamaFit AI Coach Card */}
+      {/* 9. Ask MamaFit AI Coach Card */}
       <div
         onClick={() => onNavigate('coach')}
         className="group relative cursor-pointer overflow-hidden rounded-3xl border border-[#f075aa]/30 bg-gradient-to-r from-[#fff0f6] via-[#fbf0ff] to-[#fff4ec] p-5 shadow-soft transition-all hover:border-[#f075aa] hover:shadow-glow sm:p-6"
@@ -512,7 +614,7 @@ export const HomePage: React.FC<HomePageProps> = ({ onNavigate }) => {
         </div>
 
         <p className="mt-3 text-sm leading-relaxed text-[#5a435f]">
-          "What helps with morning sickness or fatigue in Week {week}?" or "Which iron-rich foods are safest?"
+          "What helps with morning sickness in Week {week}?" or "Which iron-rich foods are safest?"
         </p>
 
         <div className="mt-4 flex flex-wrap gap-2 text-xs">
@@ -528,7 +630,7 @@ export const HomePage: React.FC<HomePageProps> = ({ onNavigate }) => {
         </div>
       </div>
 
-      {/* 7. Daily Affirmation */}
+      {/* 10. Daily Affirmation */}
       <div className="rounded-3xl border border-[#f0dfea] bg-gradient-to-br from-[#fffdfa] to-[#fff8fb] p-5 text-center shadow-xs">
         <span className="text-xl">🌸</span>
         <blockquote className="font-display mt-2 text-base italic text-[#231426] sm:text-lg">
@@ -536,6 +638,32 @@ export const HomePage: React.FC<HomePageProps> = ({ onNavigate }) => {
         </blockquote>
         <p className="mt-1 text-xs text-[#745f78]">MamaFit Daily Loving Affirmation</p>
       </div>
+
+      {/* Week by Week Modal */}
+      {showWeekGuideModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-[#231426]/60 backdrop-blur-sm animate-fadeIn">
+          <div className="relative w-full max-w-4xl max-h-[92vh] overflow-y-auto rounded-3xl bg-[#fff8fb] p-4 sm:p-6 shadow-2xl">
+            <PregnancyGuide onClose={() => setShowWeekGuideModal(false)} />
+          </div>
+        </div>
+      )}
+
+      {/* Care & Safety Center Modal */}
+      {showCareModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-[#231426]/60 backdrop-blur-sm animate-fadeIn">
+          <div className="relative w-full max-w-3xl max-h-[92vh] overflow-y-auto rounded-3xl bg-[#fff8fb] p-4 sm:p-6 shadow-2xl">
+            <div className="flex justify-end mb-2">
+              <button
+                onClick={() => setShowCareModal(false)}
+                className="rounded-2xl border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-50"
+              >
+                Close
+              </button>
+            </div>
+            <PrenatalCareCenter />
+          </div>
+        </div>
+      )}
     </div>
   );
 };

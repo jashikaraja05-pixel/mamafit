@@ -10,18 +10,22 @@ import {
   Sparkles,
   Info,
   CheckCircle2,
+  Calendar,
+  BookOpen,
 } from 'lucide-react';
 import { useMamaStore, mamaStore } from '../store/useMamaStore';
-import { DEFAULT_PREGNANCY_FOODS, FOOD_SAFETY_GUIDE } from '../data/foodDatabase';
+import { DEFAULT_PREGNANCY_FOODS, FOOD_SAFETY_GUIDE, NUTRIENTS_GUIDE } from '../data/foodDatabase';
 import { ProgressRing } from '../components/common/ProgressRing';
 import { MealItem } from '../types';
+import { MealPlannerAndNutrients } from '../components/nutrition/MealPlannerAndNutrients';
 
 export const NutritionPage: React.FC = () => {
   const { profile, today } = useMamaStore();
-  const [activeTab, setActiveTab] = useState<'log' | 'safety' | 'add'>('log');
+  const [activeTab, setActiveTab] = useState<'log' | 'safety' | 'add' | 'planner' | 'nutrients'>('log');
   const [safetySearch, setSafetySearch] = useState('');
   const [safetyFilter, setSafetyFilter] = useState<'all' | 'safe' | 'caution' | 'avoid'>('all');
   const [selectedMealType, setSelectedMealType] = useState<MealItem['mealType']>('breakfast');
+  const [foodCategoryFilter, setFoodCategoryFilter] = useState<'all' | 'tamil' | 'indian' | 'global' | 'snack'>('all');
 
   // Custom meal input state
   const [customName, setCustomName] = useState('');
@@ -88,24 +92,29 @@ export const NutritionPage: React.FC = () => {
     return matchesQuery && matchesFilter;
   });
 
+  const filteredPredefinedFoods = DEFAULT_PREGNANCY_FOODS.filter((f) => {
+    if (foodCategoryFilter === 'all') return true;
+    return f.category === foodCategoryFilter;
+  });
+
   return (
     <div className="space-y-6 pb-24">
-      {/* 1. Header */}
-      <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+      {/* 1. Header & Navigation Sub-Tabs */}
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="font-display text-2xl font-bold tracking-tight text-[#231426] sm:text-3xl">
-            Prenatal Nutrition & Food Safety
+            Prenatal Nutrition, Meal Planner & Food Safety
           </h1>
           <p className="text-xs text-[#745f78]">
-            Wholesome nourishment for you and your growing baby in Week {profile.pregnancyWeek}
+            Evidence-based nourishment, Tamil/Indian recipes, and safety checker for Week {profile.pregnancyWeek}
           </p>
         </div>
 
         {/* Tab switch */}
-        <div className="flex items-center gap-1 rounded-2xl border border-[#f0dfea] bg-white p-1 shadow-xs">
+        <div className="flex items-center gap-1 overflow-x-auto rounded-2xl border border-[#f0dfea] bg-white p-1 shadow-xs scrollbar-none">
           <button
             onClick={() => setActiveTab('log')}
-            className={`rounded-xl px-3 py-1.5 text-xs font-semibold transition-all ${
+            className={`rounded-xl px-3 py-1.5 text-xs font-semibold whitespace-nowrap transition-all ${
               activeTab === 'log'
                 ? 'bg-[#f075aa] text-white shadow-soft'
                 : 'text-[#745f78] hover:text-[#231426]'
@@ -115,7 +124,7 @@ export const NutritionPage: React.FC = () => {
           </button>
           <button
             onClick={() => setActiveTab('add')}
-            className={`rounded-xl px-3 py-1.5 text-xs font-semibold transition-all ${
+            className={`rounded-xl px-3 py-1.5 text-xs font-semibold whitespace-nowrap transition-all ${
               activeTab === 'add'
                 ? 'bg-[#f075aa] text-white shadow-soft'
                 : 'text-[#745f78] hover:text-[#231426]'
@@ -124,14 +133,34 @@ export const NutritionPage: React.FC = () => {
             + Add Food
           </button>
           <button
+            onClick={() => setActiveTab('planner')}
+            className={`rounded-xl px-3 py-1.5 text-xs font-semibold whitespace-nowrap transition-all ${
+              activeTab === 'planner'
+                ? 'bg-[#f075aa] text-white shadow-soft'
+                : 'text-[#745f78] hover:text-[#231426]'
+            }`}
+          >
+            Meal Planner 📅
+          </button>
+          <button
             onClick={() => setActiveTab('safety')}
-            className={`rounded-xl px-3 py-1.5 text-xs font-semibold transition-all ${
+            className={`rounded-xl px-3 py-1.5 text-xs font-semibold whitespace-nowrap transition-all ${
               activeTab === 'safety'
                 ? 'bg-[#f075aa] text-white shadow-soft'
                 : 'text-[#745f78] hover:text-[#231426]'
             }`}
           >
             Safety Guide 🛡️
+          </button>
+          <button
+            onClick={() => setActiveTab('nutrients')}
+            className={`rounded-xl px-3 py-1.5 text-xs font-semibold whitespace-nowrap transition-all ${
+              activeTab === 'nutrients'
+                ? 'bg-[#f075aa] text-white shadow-soft'
+                : 'text-[#745f78] hover:text-[#231426]'
+            }`}
+          >
+            Nutrients 🥑
           </button>
         </div>
       </div>
@@ -233,7 +262,53 @@ export const NutritionPage: React.FC = () => {
         </div>
       </div>
 
-      {/* 3. Tab Contents */}
+      {/* 3. Meal Planner Tab */}
+      {activeTab === 'planner' && <MealPlannerAndNutrients />}
+
+      {/* 4. Nutrients Guide Tab */}
+      {activeTab === 'nutrients' && (
+        <div className="space-y-4">
+          <div className="rounded-3xl border border-[#f0dfea] bg-white p-5 shadow-soft sm:p-7">
+            <div className="flex items-center gap-2 mb-4">
+              <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-[#fff0f6] text-[#f075aa]">
+                <BookOpen className="h-4 w-4" />
+              </span>
+              <div>
+                <h3 className="font-display text-xl font-bold text-[#231426]">
+                  Pregnancy Nutrients Master Guide
+                </h3>
+                <p className="text-xs text-[#745f78]">
+                  Learn why folate, iron, calcium, protein, and DHA are critical and discover top foods.
+                </p>
+              </div>
+            </div>
+
+            <div className="grid gap-3.5 sm:grid-cols-2">
+              {NUTRIENTS_GUIDE.map((n) => (
+                <div key={n.id} className="rounded-2xl border border-[#f0dfea] bg-[#fff8fb] p-4 text-xs">
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center gap-2">
+                      <span className="text-2xl">{n.emoji}</span>
+                      <h4 className="font-bold text-[#231426] text-sm">{n.name}</h4>
+                    </div>
+                    <span className="rounded-full bg-white px-2.5 py-0.5 font-bold text-[#f075aa] border border-[#f0dfea]">
+                      {n.dailyGoal}
+                    </span>
+                  </div>
+                  <p className="text-[#5a435f] mt-1"><strong>For Baby:</strong> {n.whyBaby}</p>
+                  <p className="text-[#5a435f] mt-1"><strong>For Mama:</strong> {n.whyMama}</p>
+                  <p className="text-[#231426] font-semibold mt-2">Natural Food Sources: {n.topFoods.join(', ')}</p>
+                  <div className="mt-2 rounded-xl bg-white p-2 text-[#745f78] border border-[#f0dfea]">
+                    💡 {n.tips}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 5. Today's Food Log Tab */}
       {activeTab === 'log' && (
         <div className="space-y-4">
           <div className="flex items-center justify-between">
@@ -254,7 +329,7 @@ export const NutritionPage: React.FC = () => {
               <Apple className="mx-auto h-10 w-10 text-[#f075aa]/50" />
               <p className="mt-2 text-sm font-semibold text-[#231426]">No meals logged yet today</p>
               <p className="mt-1 text-xs text-[#745f78]">
-                Tap "+ Add Food" to log your wholesome breakfast, lunch, or snack!
+                Tap "+ Add Food" to select from traditional Tamil, Indian, or global pregnancy foods!
               </p>
             </div>
           ) : (
@@ -306,7 +381,7 @@ export const NutritionPage: React.FC = () => {
         </div>
       )}
 
-      {/* Add Food Tab */}
+      {/* 6. Add Food Tab */}
       {activeTab === 'add' && (
         <div className="space-y-6">
           {/* Meal type selector */}
@@ -331,26 +406,60 @@ export const NutritionPage: React.FC = () => {
             </div>
           </div>
 
-          {/* Quick-add pregnancy-safe foods */}
+          {/* Quick-add pregnancy-safe foods with culture filters */}
           <div className="rounded-3xl border border-[#f0dfea] bg-white p-5 shadow-xs">
-            <h3 className="font-display text-lg font-bold text-[#231426] mb-1">
-              Curated Pregnancy-Safe Foods
-            </h3>
-            <p className="text-xs text-[#745f78] mb-4">
-              Tap any nutrient-dense food to add it directly to your log:
-            </p>
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
+              <div>
+                <h3 className="font-display text-lg font-bold text-[#231426]">
+                  Curated Pregnancy-Safe Foods ({filteredPredefinedFoods.length})
+                </h3>
+                <p className="text-xs text-[#745f78]">
+                  Nutrient-dense options including Tamil, Indian, and wholesome international favorites.
+                </p>
+              </div>
+
+              {/* Category pills */}
+              <div className="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0 scrollbar-none">
+                {[
+                  { id: 'all', label: 'All' },
+                  { id: 'tamil', label: 'Tamil 🍛' },
+                  { id: 'indian', label: 'Indian 🌿' },
+                  { id: 'global', label: 'Global 🥗' },
+                  { id: 'snack', label: 'Snacks 🍌' },
+                ].map((cat) => (
+                  <button
+                    key={cat.id}
+                    onClick={() => setFoodCategoryFilter(cat.id as any)}
+                    className={`rounded-xl px-3 py-1 text-xs font-semibold whitespace-nowrap transition-all ${
+                      foodCategoryFilter === cat.id
+                        ? 'bg-[#f075aa] text-white'
+                        : 'border border-[#f0dfea] bg-[#fff8fb] text-[#745f78] hover:bg-white'
+                    }`}
+                  >
+                    {cat.label}
+                  </button>
+                ))}
+              </div>
+            </div>
 
             <div className="grid gap-3 sm:grid-cols-2">
-              {DEFAULT_PREGNANCY_FOODS.map((food, idx) => (
+              {filteredPredefinedFoods.map((food, idx) => (
                 <div
                   key={idx}
                   onClick={() => handleAddPredefined(food)}
                   className="group flex cursor-pointer items-center justify-between rounded-2xl border border-[#f0dfea] bg-[#fff8fb] p-3.5 transition-all hover:border-[#f075aa] hover:bg-white hover:shadow-soft"
                 >
                   <div>
-                    <h4 className="text-xs font-bold text-[#231426] group-hover:text-[#f075aa] transition-colors">
-                      {food.name}
-                    </h4>
+                    <div className="flex items-center gap-2">
+                      <h4 className="text-xs font-bold text-[#231426] group-hover:text-[#f075aa] transition-colors">
+                        {food.name}
+                      </h4>
+                      {food.category === 'tamil' && (
+                        <span className="rounded-full bg-amber-100 text-amber-800 px-1.5 py-0.2 text-[9px] font-bold">
+                          Tamil
+                        </span>
+                      )}
+                    </div>
                     <p className="text-[11px] text-[#745f78]">
                       {food.serving} · <span className="font-semibold">{food.cal} kcal</span>
                     </p>
@@ -455,7 +564,7 @@ export const NutritionPage: React.FC = () => {
         </div>
       )}
 
-      {/* 4. Pregnancy Food Safety Guide */}
+      {/* 7. Pregnancy Food Safety Guide */}
       {activeTab === 'safety' && (
         <div className="space-y-4">
           <div className="rounded-3xl border border-[#f0dfea] bg-white p-5 shadow-xs sm:p-6">
@@ -463,7 +572,7 @@ export const NutritionPage: React.FC = () => {
               "Is It Safe to Eat?" Pregnancy Food Checker
             </h3>
             <p className="text-xs text-[#745f78] mb-4">
-              Instantly check whether specific foods, cheeses, fish, and teas are safe during pregnancy:
+              Check whether specific foods, cheeses, raw papaya, fenugreek, fish, and teas are safe during pregnancy:
             </p>
 
             {/* Search and filters */}
@@ -472,7 +581,7 @@ export const NutritionPage: React.FC = () => {
                 <Search className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
                 <input
                   type="text"
-                  placeholder="Search foods (e.g. sushi, brie, coffee, eggs, salmon)..."
+                  placeholder="Search foods (e.g. papaya, methi, sesame, sushi, brie, coffee, eggs, salmon)..."
                   value={safetySearch}
                   onChange={(e) => setSafetySearch(e.target.value)}
                   className="w-full rounded-2xl border border-[#f0dfea] bg-[#fff8fb] pl-9 pr-3.5 py-2.5 text-xs text-[#231426] focus:border-[#f075aa] focus:bg-white focus:outline-none"
@@ -548,6 +657,11 @@ export const NutritionPage: React.FC = () => {
                           >
                             {item.status}
                           </span>
+                          {item.isIndianTamil && (
+                            <span className="rounded-full bg-amber-100 text-amber-900 border border-amber-200 px-2 py-0.5 text-[10px] font-bold">
+                              Traditional Context
+                            </span>
+                          )}
                         </div>
                         <p className="mt-1 text-xs text-[#5a435f]">
                           <strong>Why:</strong> {item.reason}

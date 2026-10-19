@@ -5,16 +5,20 @@ import {
   Pause,
   RotateCcw,
   CheckCircle2,
-  ExternalLink,
   ShieldAlert,
   Sparkles,
   Heart,
   ChevronRight,
   Info,
+  Film,
+  Clock,
+  Filter,
 } from 'lucide-react';
 import { PRENATAL_EXERCISES } from '../data/exerciseRoutines';
-import { ExerciseItem } from '../types';
+import { ExerciseItem, ExerciseCategory } from '../types';
 import { useMamaStore, mamaStore } from '../store/useMamaStore';
+import { IntervalTimer } from '../components/exercise/IntervalTimer';
+import { VideoPlayerModal } from '../components/exercise/VideoPlayerModal';
 
 export const ExercisePage: React.FC = () => {
   const { profile, today } = useMamaStore();
@@ -24,13 +28,20 @@ export const ExercisePage: React.FC = () => {
   const [isPlaying, setIsPlaying] = useState(false);
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
 
+  // Video & 2D Trainer Modal state
+  const [selectedVideoExercise, setSelectedVideoExercise] = useState<ExerciseItem | null>(null);
+  const [showVideoModal, setShowVideoModal] = useState(false);
+
+  // Category filter for Exercise Center
+  const [selectedCategory, setSelectedCategory] = useState<ExerciseCategory | 'all'>('all');
+
   // Kegel trainer mode
   const [kegelMode, setKegelMode] = useState(false);
   const [kegelPhase, setKegelPhase] = useState<'squeeze' | 'release'>('squeeze');
   const [kegelCountdown, setKegelCountdown] = useState(5);
   const [kegelReps, setKegelReps] = useState(0);
 
-  // Timer effect for workout player
+  // Timer effect for single workout player
   useEffect(() => {
     let interval: any = null;
     if (isPlaying && activeExercise) {
@@ -81,26 +92,47 @@ export const ExercisePage: React.FC = () => {
     setElapsedSeconds(0);
   };
 
+  const handleOpenVideoModal = (ex: ExerciseItem) => {
+    setSelectedVideoExercise(ex);
+    setShowVideoModal(true);
+  };
+
   const formatTime = (secs: number) => {
     const m = Math.floor(secs / 60);
     const s = secs % 60;
     return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
   };
 
+  const categories: { id: ExerciseCategory | 'all'; label: string; emoji: string }[] = [
+    { id: 'all', label: 'All Routines', emoji: '✨' },
+    { id: 'walking', label: 'Gentle Walking', emoji: '🚶‍♀️' },
+    { id: 'stretching', label: 'Stretching', emoji: '🌿' },
+    { id: 'yoga', label: 'Prenatal Yoga', emoji: '🧘‍♀️' },
+    { id: 'breathing', label: 'Breathing', emoji: '🌬️' },
+    { id: 'relaxation', label: 'Relaxation', emoji: '🌙' },
+    { id: 'posture', label: 'Posture', emoji: '🏛️' },
+    { id: 'pelvic', label: 'Pelvic Floor', emoji: '💗' },
+  ];
+
+  const filteredExercises = PRENATAL_EXERCISES.filter((ex) => {
+    if (selectedCategory === 'all') return true;
+    return ex.category === selectedCategory;
+  });
+
   return (
     <div className="space-y-6 pb-24">
       {/* 1. Header */}
       <div>
         <h1 className="font-display text-2xl font-bold tracking-tight text-[#231426] sm:text-3xl">
-          Gentle Prenatal Movement & Kegels
+          Exercise Center & Safe Movement
         </h1>
         <p className="text-xs text-[#745f78]">
-          Trimester-safe routines curated for pelvic tone, spine decompression, and calm breathing.
+          Trimester-safe routines curated for pelvic tone, spinal decompression, calm breathing, and endurance.
         </p>
       </div>
 
-      {/* 2. Today's Movement Progress */}
-      <div className="flex items-center justify-between rounded-3xl border border-[#f0dfea] bg-white p-5 shadow-soft">
+      {/* 2. Today's Movement Progress Bar & Kegel Launcher */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 rounded-3xl border border-[#f0dfea] bg-white p-5 shadow-soft">
         <div className="flex items-center gap-3">
           <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[#fff0f6] text-[#f075aa]">
             <Flower2 className="h-6 w-6" />
@@ -116,24 +148,29 @@ export const ExercisePage: React.FC = () => {
           </div>
         </div>
 
-        <button
-          onClick={() => {
-            setKegelMode(!kegelMode);
-            setActiveExercise(null);
-          }}
-          className={`rounded-2xl px-4 py-2 text-xs font-bold transition-all ${
-            kegelMode
-              ? 'bg-[#231426] text-white shadow-soft'
-              : 'border border-[#f0dfea] bg-[#fff8fb] text-[#f075aa] hover:bg-white'
-          }`}
-        >
-          {kegelMode ? 'Exit Kegel Gym' : '💗 Launch Kegel Gym'}
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => {
+              setKegelMode(!kegelMode);
+              setActiveExercise(null);
+            }}
+            className={`rounded-2xl px-4 py-2 text-xs font-bold transition-all ${
+              kegelMode
+                ? 'bg-[#231426] text-white shadow-soft'
+                : 'border border-[#f0dfea] bg-[#fff8fb] text-[#f075aa] hover:bg-white'
+            }`}
+          >
+            {kegelMode ? 'Exit Kegel Mode' : '💗 Pelvic Floor Gym'}
+          </button>
+        </div>
       </div>
 
-      {/* 3. Interactive Kegel Trainer Banner / Mode */}
+      {/* 3. NEW FEATURE: Safe Pregnancy Interval Timer Component */}
+      <IntervalTimer />
+
+      {/* 4. Interactive Kegel Trainer Banner / Mode */}
       {kegelMode && (
-        <div className="rounded-3xl border-2 border-[#f075aa]/40 bg-gradient-to-br from-[#fff0f6] via-white to-[#fdf4fb] p-6 shadow-glow text-center">
+        <div className="rounded-3xl border-2 border-[#f075aa]/40 bg-gradient-to-br from-[#fff0f6] via-white to-[#fdf4fb] p-6 shadow-glow text-center animate-fadeIn">
           <div className="inline-flex items-center gap-1.5 rounded-full bg-[#f075aa]/15 px-3 py-1 text-xs font-bold text-[#e04586]">
             <Sparkles className="h-3.5 w-3.5" />
             <span>Interactive Pelvic Floor Coach</span>
@@ -144,7 +181,7 @@ export const ExercisePage: React.FC = () => {
           </h3>
           <p className="text-xs text-[#745f78] mt-1 max-w-md mx-auto">
             {kegelPhase === 'squeeze'
-              ? 'Draw pelvic floor muscles upward like an elevator towards your navel. Keep breathing calmly.'
+              ? 'Draw pelvic floor muscles upward like an elevator toward your navel. Keep breathing calmly.'
               : 'Release all tension down to the ground. Complete relaxation is critical for delivery.'}
           </p>
 
@@ -179,9 +216,9 @@ export const ExercisePage: React.FC = () => {
         </div>
       )}
 
-      {/* 4. Active Workout Player Modal / Drawer */}
+      {/* 5. Active Single Workout Player Drawer */}
       {activeExercise && (
-        <div className="rounded-3xl border-2 border-[#f075aa] bg-white p-6 shadow-glow">
+        <div className="rounded-3xl border-2 border-[#f075aa] bg-white p-6 shadow-glow animate-fadeIn">
           <div className="flex items-start justify-between">
             <div className="flex items-center gap-3">
               <span className="text-3xl">{activeExercise.emoji}</span>
@@ -249,17 +286,46 @@ export const ExercisePage: React.FC = () => {
         </div>
       )}
 
-      {/* 5. Curated Prenatal Workouts Grid */}
-      <div className="space-y-3">
-        <h2 className="font-display text-xl font-bold text-[#231426]">
-          Recommended Routines
-        </h2>
+      {/* 6. Exercise Center by Category Tabs */}
+      <div className="space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+          <div>
+            <h2 className="font-display text-xl font-bold text-[#231426]">
+              Exercise Center ({filteredExercises.length} Routines)
+            </h2>
+            <p className="text-xs text-[#745f78]">
+              Click "Video & Trainer" to watch educational video demonstrations and 2D animated poses.
+            </p>
+          </div>
+        </div>
 
-        <div className="grid gap-3 sm:grid-cols-2">
-          {PRENATAL_EXERCISES.map((ex) => (
+        {/* Category Filter Pills */}
+        <div className="flex items-center gap-1.5 overflow-x-auto pb-2 scrollbar-none">
+          {categories.map((cat) => {
+            const isSelected = selectedCategory === cat.id;
+            return (
+              <button
+                key={cat.id}
+                onClick={() => setSelectedCategory(cat.id)}
+                className={`flex items-center gap-1.5 rounded-2xl px-3.5 py-2 text-xs font-semibold whitespace-nowrap transition-all ${
+                  isSelected
+                    ? 'bg-[#231426] text-white shadow-soft'
+                    : 'border border-[#f0dfea] bg-white text-[#745f78] hover:bg-[#fff8fb]'
+                }`}
+              >
+                <span>{cat.emoji}</span>
+                <span>{cat.label}</span>
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Exercises Grid */}
+        <div className="grid gap-3.5 sm:grid-cols-2">
+          {filteredExercises.map((ex) => (
             <div
               key={ex.id}
-              className="group flex flex-col justify-between rounded-3xl border border-[#f0dfea] bg-white p-5 shadow-xs transition-all hover:border-[#f075aa]/40 hover:shadow-soft"
+              className="group flex flex-col justify-between rounded-3xl border border-[#f0dfea] bg-white p-5 shadow-xs transition-all hover:border-[#f075aa]/50 hover:shadow-soft"
             >
               <div>
                 <div className="flex items-start justify-between">
@@ -300,29 +366,27 @@ export const ExercisePage: React.FC = () => {
                   <Play className="h-3.5 w-3.5 fill-white" />
                   Start Timer
                 </button>
-                <a
-                  href={`https://www.youtube.com/results?search_query=${encodeURIComponent(ex.youtubeQuery)}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex items-center justify-center rounded-2xl border border-rose-200 bg-rose-50/70 px-3 py-2 text-xs font-semibold text-rose-700 hover:bg-rose-100 transition-colors"
+                <button
+                  onClick={() => handleOpenVideoModal(ex)}
+                  className="flex items-center justify-center rounded-2xl border border-rose-200 bg-rose-50/70 px-3.5 py-2 text-xs font-semibold text-rose-700 hover:bg-rose-100 transition-colors"
                 >
-                  <ExternalLink className="h-3.5 w-3.5 mr-1" />
-                  Watch
-                </a>
+                  <Film className="h-3.5 w-3.5 mr-1" />
+                  Video & Trainer
+                </button>
               </div>
             </div>
           ))}
         </div>
       </div>
 
-      {/* 6. Medical Prenatal Exercise Safety Guidelines */}
+      {/* 7. Medical Prenatal Exercise Safety Guidelines */}
       <div className="rounded-3xl border border-rose-200 bg-rose-50/60 p-5 text-xs text-rose-950 sm:p-6">
         <div className="flex items-center gap-2 mb-2 font-bold text-rose-900">
           <ShieldAlert className="h-5 w-5 text-rose-600" />
-          <span>When to Stop Exercising Immediately:</span>
+          <span>When to Cease Exercise Immediately:</span>
         </div>
         <p className="leading-relaxed mb-3">
-          Listen to your body at every moment. Cease physical activity and contact your obstetrician or midwife promptly if you encounter:
+          Listen to your body at every moment. Never push through fatigue or pain. Cease physical activity and contact your obstetrician or midwife promptly if you encounter:
         </p>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 font-medium">
           <div className="flex items-center gap-2">
@@ -331,7 +395,7 @@ export const ExercisePage: React.FC = () => {
           </div>
           <div className="flex items-center gap-2">
             <span className="h-1.5 w-1.5 rounded-full bg-rose-500" />
-            <span>Dizziness, feeling faint, or headache</span>
+            <span>Dizziness, feeling faint, or sudden headache</span>
           </div>
           <div className="flex items-center gap-2">
             <span className="h-1.5 w-1.5 rounded-full bg-rose-500" />
@@ -339,10 +403,18 @@ export const ExercisePage: React.FC = () => {
           </div>
           <div className="flex items-center gap-2">
             <span className="h-1.5 w-1.5 rounded-full bg-rose-500" />
-            <span>Calf swelling, redness, or calf pain</span>
+            <span>Calf swelling, redness, or unilateral leg pain</span>
           </div>
         </div>
       </div>
+
+      {/* 8. Video Player & 2D Trainer Modal */}
+      <VideoPlayerModal
+        exercise={selectedVideoExercise}
+        isOpen={showVideoModal}
+        onClose={() => setShowVideoModal(false)}
+        onStartTimer={handleStartExercise}
+      />
     </div>
   );
 };

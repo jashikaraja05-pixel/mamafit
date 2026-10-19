@@ -1,17 +1,32 @@
 import React, { useState } from 'react';
-import { Droplets, Plus, Minus, Settings2, CheckCircle2, Sparkles, RotateCcw } from 'lucide-react';
+import {
+  Droplets,
+  Plus,
+  Minus,
+  Settings2,
+  CheckCircle2,
+  Sparkles,
+  RotateCcw,
+  Bell,
+  Clock,
+  History,
+} from 'lucide-react';
 import { useMamaStore, mamaStore } from '../../store/useMamaStore';
+import { requestNotificationPermission, triggerLocalReminder, getNotificationPermission } from '../../utils/notifications';
 
 export const HydrationTrackerCard: React.FC = () => {
-  const { profile, today } = useMamaStore();
+  const { profile, today, history } = useMamaStore();
   const [isEditingGoal, setIsEditingGoal] = useState(false);
+  const [showHistory, setShowHistory] = useState(false);
   const [customAmount, setCustomAmount] = useState('250');
   const [tempGoal, setTempGoal] = useState(profile.waterGoalMl || 2500);
+  const [reminderNotice, setReminderNotice] = useState<string | null>(null);
 
   const goal = profile.waterGoalMl || 2500;
   const current = today.waterMl;
   const percentage = Math.min(Math.round((current / goal) * 100), 100);
   const isGoalReached = current >= goal && goal > 0;
+  const logs = today.waterLogs || [];
 
   const handleSaveGoal = (e: React.FormEvent) => {
     e.preventDefault();
@@ -26,6 +41,16 @@ export const HydrationTrackerCard: React.FC = () => {
       mamaStore.addWater(val);
       setCustomAmount('');
     }
+  };
+
+  const handleTestReminder = async () => {
+    await requestNotificationPermission();
+    triggerLocalReminder(
+      'Gentle Hydration Reminder',
+      'Take a gentle sip of cool water mama 💧 Your amniotic fluid and baby say thank you!'
+    );
+    setReminderNotice('Reminder sent! 🌸 (Check device notification or sound chime)');
+    setTimeout(() => setReminderNotice(null), 3000);
   };
 
   return (
@@ -49,27 +74,45 @@ export const HydrationTrackerCard: React.FC = () => {
               )}
             </div>
             <p className="text-xs text-[#745f78]">
-              Supports amniotic fluid, digestion, and healthy blood volume
+              Supports amniotic fluid replenishment, placenta delivery, and prevents leg cramps
             </p>
           </div>
         </div>
 
-        <button
-          onClick={() => {
-            setTempGoal(profile.waterGoalMl || 2500);
-            setIsEditingGoal(!isEditingGoal);
-          }}
-          className={`flex items-center gap-1.5 rounded-2xl px-3 py-1.5 text-xs font-semibold transition-all ${
-            isEditingGoal
-              ? 'bg-[#231426] text-white shadow-xs'
-              : 'border border-[#f0dfea] bg-[#fff8fb] text-[#745f78] hover:border-[#f075aa] hover:text-[#f075aa]'
-          }`}
-          title="Adjust Daily Water Target"
-        >
-          <Settings2 className="h-3.5 w-3.5" />
-          <span>{isEditingGoal ? 'Close' : 'Set Goal'}</span>
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={handleTestReminder}
+            className="flex items-center gap-1.5 rounded-2xl border border-sky-200 bg-sky-50 px-3 py-1.5 text-xs font-semibold text-sky-700 hover:bg-sky-100 transition-colors shadow-xs"
+            title="Send a sample hydration reminder"
+          >
+            <Bell className="h-3.5 w-3.5" />
+            <span className="hidden sm:inline">Remind Me</span>
+          </button>
+
+          <button
+            onClick={() => {
+              setTempGoal(profile.waterGoalMl || 2500);
+              setIsEditingGoal(!isEditingGoal);
+            }}
+            className={`flex items-center gap-1.5 rounded-2xl px-3 py-1.5 text-xs font-semibold transition-all ${
+              isEditingGoal
+                ? 'bg-[#231426] text-white shadow-xs'
+                : 'border border-[#f0dfea] bg-[#fff8fb] text-[#745f78] hover:border-[#f075aa] hover:text-[#f075aa]'
+            }`}
+            title="Adjust Daily Water Target"
+          >
+            <Settings2 className="h-3.5 w-3.5" />
+            <span>{isEditingGoal ? 'Close' : 'Set Goal'}</span>
+          </button>
+        </div>
       </div>
+
+      {reminderNotice && (
+        <div className="mt-3 flex items-center gap-2 rounded-2xl border border-sky-200 bg-sky-50 p-2.5 text-xs font-semibold text-sky-800 animate-fadeIn">
+          <Sparkles className="h-4 w-4 text-sky-600" />
+          <span>{reminderNotice}</span>
+        </div>
+      )}
 
       {/* Inline Goal Setting Form */}
       {isEditingGoal && (
@@ -116,7 +159,7 @@ export const HydrationTrackerCard: React.FC = () => {
             </div>
           </div>
           <p className="mt-2 text-[11px] text-sky-800 leading-normal">
-            💡 Clinical tip: Expectant mothers are recommended 2,300 to 2,800 ml (approx 8–10 cups) daily. Increase slightly on warmer days or after gentle movement.
+            💡 Clinical recommendation: Expectant mothers are advised 2,300 to 2,800 ml (approx 8–10 cups) daily. Increase slightly on warmer days or after gentle movement.
           </p>
         </form>
       )}
@@ -160,48 +203,55 @@ export const HydrationTrackerCard: React.FC = () => {
         </p>
       )}
 
-      {/* Quick Intake Logging Buttons */}
+      {/* Quick Intake Logging Buttons with Cup & Bottle Sizes */}
       <div className="mt-5 grid grid-cols-2 gap-2 sm:grid-cols-4">
         <button
           onClick={() => mamaStore.addWater(150)}
-          className="flex items-center justify-center gap-1.5 rounded-2xl border border-sky-100 bg-sky-50/70 py-2.5 px-3 text-xs font-semibold text-sky-800 hover:bg-sky-100 hover:border-sky-300 transition-all active:scale-95"
+          className="flex flex-col items-center justify-center rounded-2xl border border-sky-100 bg-sky-50/70 py-2.5 px-3 text-xs font-semibold text-sky-800 hover:bg-sky-100 hover:border-sky-300 transition-all active:scale-95"
         >
-          <Plus className="h-3.5 w-3.5 text-sky-600" />
-          <span>+150 ml</span>
-          <span className="text-[10px] text-sky-600/70">(Tea/Small)</span>
+          <div className="flex items-center gap-1">
+            <Plus className="h-3.5 w-3.5 text-sky-600" />
+            <span>+150 ml</span>
+          </div>
+          <span className="text-[10px] text-sky-600/70">Small Cup</span>
         </button>
 
         <button
           onClick={() => mamaStore.addWater(250)}
-          className="flex items-center justify-center gap-1.5 rounded-2xl border border-sky-100 bg-sky-50/70 py-2.5 px-3 text-xs font-semibold text-sky-800 hover:bg-sky-100 hover:border-sky-300 transition-all active:scale-95"
+          className="flex flex-col items-center justify-center rounded-2xl border border-sky-100 bg-sky-50/70 py-2.5 px-3 text-xs font-semibold text-sky-800 hover:bg-sky-100 hover:border-sky-300 transition-all active:scale-95"
         >
-          <Plus className="h-3.5 w-3.5 text-sky-600" />
-          <span>+250 ml</span>
-          <span className="text-[10px] text-sky-600/70">(1 Cup)</span>
+          <div className="flex items-center gap-1">
+            <Plus className="h-3.5 w-3.5 text-sky-600" />
+            <span>+250 ml</span>
+          </div>
+          <span className="text-[10px] text-sky-600/70">Standard Glass</span>
         </button>
 
         <button
           onClick={() => mamaStore.addWater(500)}
-          className="flex items-center justify-center gap-1.5 rounded-2xl border border-sky-100 bg-sky-50/70 py-2.5 px-3 text-xs font-semibold text-sky-800 hover:bg-sky-100 hover:border-sky-300 transition-all active:scale-95"
+          className="flex flex-col items-center justify-center rounded-2xl border border-sky-100 bg-sky-50/70 py-2.5 px-3 text-xs font-semibold text-sky-800 hover:bg-sky-100 hover:border-sky-300 transition-all active:scale-95"
         >
-          <Plus className="h-3.5 w-3.5 text-sky-600" />
-          <span>+500 ml</span>
-          <span className="text-[10px] text-sky-600/70">(Bottle)</span>
+          <div className="flex items-center gap-1">
+            <Plus className="h-3.5 w-3.5 text-sky-600" />
+            <span>+500 ml</span>
+          </div>
+          <span className="text-[10px] text-sky-600/70">Water Bottle</span>
         </button>
 
         <button
-          onClick={() => mamaStore.addWater(-250)}
-          disabled={current === 0}
-          className="flex items-center justify-center gap-1.5 rounded-2xl border border-slate-200 bg-slate-50 py-2.5 px-3 text-xs font-semibold text-slate-600 hover:bg-slate-100 transition-all disabled:opacity-40"
-          title="Undo 250ml"
+          onClick={() => mamaStore.addWater(750)}
+          className="flex flex-col items-center justify-center rounded-2xl border border-sky-100 bg-sky-50/70 py-2.5 px-3 text-xs font-semibold text-sky-800 hover:bg-sky-100 hover:border-sky-300 transition-all active:scale-95"
         >
-          <Minus className="h-3.5 w-3.5" />
-          <span>-250 ml</span>
+          <div className="flex items-center gap-1">
+            <Plus className="h-3.5 w-3.5 text-sky-600" />
+            <span>+750 ml</span>
+          </div>
+          <span className="text-[10px] text-sky-600/70">Large Bottle</span>
         </button>
       </div>
 
-      {/* Custom Amount Form & Reset */}
-      <div className="mt-3.5 flex items-center justify-between gap-3 border-t border-[#f0dfea] pt-3.5">
+      {/* Custom Amount Form & History Toggle */}
+      <div className="mt-3.5 flex flex-wrap items-center justify-between gap-3 border-t border-[#f0dfea] pt-3.5">
         <form onSubmit={handleCustomLog} className="flex items-center gap-2">
           <input
             type="number"
@@ -222,19 +272,71 @@ export const HydrationTrackerCard: React.FC = () => {
           </button>
         </form>
 
-        <button
-          onClick={() => {
-            if (current > 0 && confirm('Reset today’s water intake back to 0 ml?')) {
-              mamaStore.resetWater();
-            }
-          }}
-          disabled={current === 0}
-          className="flex items-center gap-1 text-[11px] font-medium text-slate-400 hover:text-rose-500 disabled:opacity-30 transition-colors"
-        >
-          <RotateCcw className="h-3 w-3" />
-          <span>Reset Day</span>
-        </button>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => setShowHistory(!showHistory)}
+            className="flex items-center gap-1 text-[11px] font-semibold text-sky-700 hover:underline"
+          >
+            <History className="h-3.5 w-3.5" />
+            <span>{showHistory ? 'Hide History' : `Logs (${logs.length})`}</span>
+          </button>
+
+          <button
+            onClick={() => {
+              if (current > 0 && confirm('Reset today’s water intake back to 0 ml?')) {
+                mamaStore.resetWater();
+              }
+            }}
+            disabled={current === 0}
+            className="flex items-center gap-1 text-[11px] font-medium text-slate-400 hover:text-rose-500 disabled:opacity-30 transition-colors"
+          >
+            <RotateCcw className="h-3 w-3" />
+            <span>Reset Day</span>
+          </button>
+        </div>
       </div>
+
+      {/* Today's Intake History Drawer */}
+      {showHistory && (
+        <div className="mt-3 rounded-2xl border border-sky-100 bg-sky-50/40 p-3 text-xs space-y-2">
+          <div className="flex items-center justify-between">
+            <span className="font-bold text-sky-950">Today’s Water Entries:</span>
+            <span className="text-[11px] text-sky-800">{logs.length} logged today</span>
+          </div>
+
+          {logs.length === 0 ? (
+            <p className="text-[11px] text-sky-700 italic">No drinks logged yet today.</p>
+          ) : (
+            <div className="flex flex-wrap gap-2 max-h-32 overflow-y-auto">
+              {logs.map((entry) => (
+                <span
+                  key={entry.id}
+                  className="rounded-xl border border-sky-200 bg-white px-2.5 py-1 text-[11px] font-semibold text-sky-900 shadow-xs"
+                >
+                  +{entry.amountMl} ml at {entry.timestamp}
+                </span>
+              ))}
+            </div>
+          )}
+
+          {/* Past 7 days comparison if history exists */}
+          {history.length > 0 && (
+            <div className="mt-3 border-t border-sky-200 pt-2">
+              <span className="font-bold text-sky-950 text-[11px]">Previous Days:</span>
+              <div className="mt-1 flex items-center gap-2 overflow-x-auto">
+                {history.slice(0, 5).map((h, i) => (
+                  <div key={i} className="flex-1 rounded-xl bg-white p-2 text-center border border-sky-100">
+                    <span className="block text-[10px] text-slate-500">{h.date.slice(5)}</span>
+                    <span className="font-bold text-sky-900 font-mono text-[11px]">
+                      {(h.waterMl / 1000).toFixed(1)}L
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 };

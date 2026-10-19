@@ -8,14 +8,22 @@ export default defineConfig(() => {
     plugins: [react(), tailwindcss()],
     resolve: {
       alias: {
-        '@': path.resolve(__dirname, '.'),
+        '@': path.resolve(import.meta.dirname || '.', '.'),
       },
     },
     server: {
       allowedHosts: true as const,
-      // HMR is disabled in AI Studio via DISABLE_HMR env var.
-      // Do not modify—file watching is disabled to prevent flickering during agent edits.
-      hmr: process.env.DISABLE_HMR !== 'true',
+      // When running in a cloud container behind an SSL reverse proxy (e.g. Cloud Run),
+      // clientPort must be 443 so the browser connects to wss://...:443 instead of defaulting to internal port 24678.
+      hmr: {
+        clientPort:
+          process.env.APP_URL?.startsWith('https') ||
+          process.env.PORT === '8080' ||
+          process.env.NGINX_PORT === '8080' ||
+          Boolean(process.env.K_SERVICE)
+            ? 443
+            : undefined,
+      },
       // Disable file watching when DISABLE_HMR is true to save CPU during agent edits.
       watch: process.env.DISABLE_HMR === 'true' ? null : {},
     },
