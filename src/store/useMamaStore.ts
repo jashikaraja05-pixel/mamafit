@@ -373,23 +373,27 @@ export const mamaStore = {
     notify();
   },
 
-  addWalkingSession: (session: Omit<WalkingSession, 'id' | 'timestamp'>) => {
+  addWalkingSession: (session: Omit<WalkingSession, 'id' | 'timestamp'>, alreadyCountedInToday = false) => {
     const newSession: WalkingSession = {
       ...session,
       id: `walk-${Date.now()}`,
       timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
     };
     const addedMin = Math.round(session.durationSec / 60);
-    const updatedSessions = [...(globalState.today.walkingSessions || []), newSession];
+    const updatedSessions = [newSession, ...(globalState.today.walkingSessions || [])];
+    const newTotalSteps = alreadyCountedInToday
+      ? globalState.today.steps
+      : globalState.today.steps + session.steps;
+
     globalState = {
       ...globalState,
       today: {
         ...globalState.today,
-        steps: globalState.today.steps + session.steps,
+        steps: newTotalSteps,
         exerciseMin: globalState.today.exerciseMin + addedMin,
         walkingSessions: updatedSessions,
       },
-      streak: globalState.streak === 0 ? 1 : globalState.streak,
+      streak: globalState.streak === 0 && newTotalSteps > 0 ? 1 : globalState.streak,
     };
     notify();
   },

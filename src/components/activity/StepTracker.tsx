@@ -1,41 +1,22 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState } from 'react';
 import {
   Footprints,
   Play,
   Pause,
+  Square,
   CheckCircle2,
   Plus,
-  MapPin,
-  Compass,
   AlertCircle,
   Activity,
   RotateCcw,
   Sparkles,
   Clock,
-  Navigation,
+  Smartphone,
+  ShieldCheck,
+  Zap,
 } from 'lucide-react';
-import { useMamaStore, mamaStore } from '../../store/useMamaStore';
-
-// Haversine formula to calculate distance in meters between two lat/lon coordinates
-function calculateHaversineDistance(
-  lat1: number,
-  lon1: number,
-  lat2: number,
-  lon2: number
-): number {
-  const R = 6371e3; // Earth radius in meters
-  const phi1 = (lat1 * Math.PI) / 180;
-  const phi2 = (lat2 * Math.PI) / 180;
-  const deltaPhi = ((lat2 - lat1) * Math.PI) / 180;
-  const deltaLambda = ((lon2 - lon1) * Math.PI) / 180;
-
-  const a =
-    Math.sin(deltaPhi / 2) * Math.sin(deltaPhi / 2) +
-    Math.cos(phi1) * Math.cos(phi2) * Math.sin(deltaLambda / 2) * Math.sin(deltaLambda / 2);
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-
-  return R * c; // Distance in meters
-}
+import { useMamaStore } from '../../store/useMamaStore';
+import { useStepCounter } from '../../hooks/useStepCounter';
 
 export const StepTracker: React.FC = () => {
   const { profile, today } = useMamaStore();
@@ -44,31 +25,33 @@ export const StepTracker: React.FC = () => {
   const percentage = Math.min(Math.round((todaySteps / stepGoal) * 100), 100);
   const sessions = today.walkingSessions || [];
 
-  // Live Tracking state
-  const [isTracking, setIsTracking] = useState(false);
-  const [elapsedSec, setElapsedSec] = useState(0);
-  const [sessionSteps, setSessionSteps] = useState(0);
-  const [gpsDistanceMeters, setGpsDistanceMeters] = useState(0);
-  const [currentSpeedKmh, setCurrentSpeedKmh] = useState<number | null>(null);
-
-  // Sensor & Geolocation status
-  const [motionSensorStatus, setMotionSensorStatus] = useState<'idle' | 'granted' | 'denied' | 'unsupported'>('idle');
-  const [geoStatus, setGeoStatus] = useState<'idle' | 'active' | 'denied' | 'unsupported'>('idle');
-  const [restTip, setRestTip] = useState<string | null>(null);
+  const {
+    walkStatus,
+    walkSeconds,
+    sessionSteps,
+    distanceKm,
+    cadenceSpm,
+    liveMagnitude,
+    sensorStatus,
+    isDeviceMotionActive,
+    errorMessage,
+    warmupActive,
+    cooldownActive,
+    restReminder,
+    startWalking,
+    pauseWalking,
+    resumeWalking,
+    stopWalking,
+    resetSession,
+    addManualSteps,
+    requestPermission,
+  } = useStepCounter();
 
   // Manual entry modal state
   const [showManualModal, setShowManualModal] = useState(false);
   const [manualCount, setManualCount] = useState('');
   const [manualNotes, setManualNotes] = useState('Gentle outdoor stroll');
-
-  // Motion sensor refs for peak detection
-  const lastStepTimeRef = useRef<number>(0);
-  const lastMagnitudeRef = useRef<number>(9.8);
-  const isRisingRef = useRef<boolean>(false);
-
-  // Geolocation watch id & previous coordinate
-  const geoWatchIdRef = useRef<number | null>(null);
-  const prevCoordRef = useRef<{ lat: number; lon: number } | null>(null);
+  const [showSensorInfoModal, setShowSensorInfoModal] = useState(false);
 
   // Formatted timer
   const formatTimer = (totalSec: number) => {
@@ -77,223 +60,15 @@ export const StepTracker: React.FC = () => {
     return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
   };
 
-  // Timer interval
-  useEffect(() => {
-    let interval: any = null;
-    if (isTracking) {
-      interval = setInterval(() => {
-        setElapsedSec((prev) => {
-          const next = prev + 1;
-          // Hydration pause reminder every 10 minutes
-          if (next > 0 && next % 600 === 0) {
-            setRestTip('💧 Hydration Check: Sip cool water and catch your breath, mama.');
-          }
-          return next;
-        });
-      }, 1000);
-    }
-    return () => {
-      if (interval) clearInterval(interval);
-    };
-  }, [isTracking]);
-
-  // DeviceMotion API listener
-  useEffect(() => {
-    if (!isTracking || motionSensorStatus !== 'granted') return;
-
-    const handleDeviceMotion = (event: DeviceMotionEvent) => {
-      const acc = event.acceleration || event.accelerationIncludingGravity;
-      if (!acc || acc.x === null || acc.y === null || acc.z === null) return;
-
-      const x = acc.x || 0;
-      const y = acc.y || 0;
-      const z = acc.z || 0;
-      const magnitude = Math.sqrt(x * x + y * y + z * z);
-      const delta = magnitude - lastMagnitudeRef.current;
-      const now = Date.now();
-
-      // Peak threshold for walking stride ~1.6 m/s² with 280ms minimum spacing
-      if (delta > 1.6 && !isRisingRef.current) {
-        isRisingRef.current = true;
-      } else if (delta < -1.6 && isRisingRef.current) {
-        isRisingRef.current = false;
-        if (now - lastStepTimeRef.current > 280) {
-          lastStepTimeRef.current = now;
-          setSessionSteps((s) => s + 1);
-          mamaStore.addSteps(1);
-        }
-      }
-
-      lastMagnitudeRef.current = magnitude;
-    };
-
-    window.addEventListener('devicemotion', handleDeviceMotion, { passive: true });
-    return () => {
-      window.removeEventListener('devicemotion', handleDeviceMotion);
-    };
-  }, [isTracking, motionSensorStatus]);
-
-  // Geolocation API watcher
-  useEffect(() => {
-    if (!isTracking) {
-      if (geoWatchIdRef.current !== null && navigator.geolocation) {
-        navigator.geolocation.clearWatch(geoWatchIdRef.current);
-        geoWatchIdRef.current = null;
-      }
-      return;
-    }
-
-    if (!navigator.geolocation) {
-      setGeoStatus('unsupported');
-      return;
-    }
-
-    geoWatchIdRef.current = navigator.geolocation.watchPosition(
-      (pos) => {
-        setGeoStatus('active');
-        const lat = pos.coords.latitude;
-        const lon = pos.coords.longitude;
-        const speed = pos.coords.speed !== null && pos.coords.speed >= 0 ? pos.coords.speed * 3.6 : null;
-        setCurrentSpeedKmh(speed);
-
-        if (prevCoordRef.current) {
-          const dist = calculateHaversineDistance(
-            prevCoordRef.current.lat,
-            prevCoordRef.current.lon,
-            lat,
-            lon
-          );
-          // Filter GPS jitter (<2m) and vehicle outliers (>15km/h for gentle walking)
-          if (dist >= 2 && dist < 100) {
-            setGpsDistanceMeters((prev) => prev + dist);
-
-            // If DeviceMotion is not supported on desktop or device, estimate steps from GPS distance (~0.65m stride)
-            if (motionSensorStatus !== 'granted') {
-              const estimatedStepsFromGps = Math.round(dist / 0.65);
-              if (estimatedStepsFromGps > 0) {
-                setSessionSteps((s) => s + estimatedStepsFromGps);
-                mamaStore.addSteps(estimatedStepsFromGps);
-              }
-            }
-          }
-        }
-        prevCoordRef.current = { lat, lon };
-      },
-      (err) => {
-        console.warn('Geolocation position tracking notice:', err.message);
-        setGeoStatus('denied');
-      },
-      {
-        enableHighAccuracy: true,
-        maximumAge: 3000,
-        timeout: 10000,
-      }
-    );
-
-    return () => {
-      if (geoWatchIdRef.current !== null && navigator.geolocation) {
-        navigator.geolocation.clearWatch(geoWatchIdRef.current);
-        geoWatchIdRef.current = null;
-      }
-    };
-  }, [isTracking, motionSensorStatus]);
-
-  // Request DeviceMotion permissions (iOS 13+ support)
-  const requestMotionPermission = async (): Promise<boolean> => {
-    if (typeof window === 'undefined' || !('DeviceMotionEvent' in window)) {
-      setMotionSensorStatus('unsupported');
-      return false;
-    }
-
-    const DME = window.DeviceMotionEvent as any;
-    if (typeof DME.requestPermission === 'function') {
-      try {
-        const res = await DME.requestPermission();
-        if (res === 'granted') {
-          setMotionSensorStatus('granted');
-          return true;
-        } else {
-          setMotionSensorStatus('denied');
-          return false;
-        }
-      } catch {
-        setMotionSensorStatus('denied');
-        return false;
-      }
-    } else {
-      setMotionSensorStatus('granted');
-      return true;
-    }
-  };
-
-  const handleStartWalk = async () => {
-    await requestMotionPermission();
-    prevCoordRef.current = null;
-    setIsTracking(true);
-    setRestTip(null);
-  };
-
-  const handlePauseWalk = () => {
-    setIsTracking(false);
-  };
-
-  const handleResumeWalk = () => {
-    setIsTracking(true);
-  };
-
-  const handleFinishWalk = () => {
-    setIsTracking(false);
-    const durationMin = Math.max(1, Math.round(elapsedSec / 60));
-    // Calculate total session distance: GPS distance if available, otherwise from stride length
-    const totalDistKm =
-      gpsDistanceMeters > 50
-        ? Math.round((gpsDistanceMeters / 1000) * 100) / 100
-        : Math.round(((sessionSteps * 0.65) / 1000) * 100) / 100;
-
-    if (elapsedSec > 0 || sessionSteps > 0) {
-      mamaStore.addWalkingSession({
-        durationSec: elapsedSec,
-        steps: sessionSteps,
-        distanceKm: totalDistKm,
-        mode: motionSensorStatus === 'granted' ? 'sensor' : geoStatus === 'active' ? 'sensor' : 'timer',
-        notes: `Gentle pregnancy walk (~${totalDistKm} km in ${durationMin} min)`,
-      });
-    }
-
-    // Reset session
-    setElapsedSec(0);
-    setSessionSteps(0);
-    setGpsDistanceMeters(0);
-    prevCoordRef.current = null;
-    setCurrentSpeedKmh(null);
-    setRestTip(null);
-  };
-
   const handleManualSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     const count = parseInt(manualCount, 10);
     if (!isNaN(count) && count > 0) {
-      const estDistKm = Math.round(((count * 0.65) / 1000) * 100) / 100;
-      const estDurationSec = Math.round((count / 100) * 60);
-
-      mamaStore.addWalkingSession({
-        durationSec: estDurationSec,
-        steps: count,
-        distanceKm: estDistKm,
-        mode: 'manual',
-        notes: manualNotes.trim() || 'Manually logged steps',
-      });
-
+      addManualSteps(count, manualNotes.trim() || 'Manual Step Entry');
       setManualCount('');
       setShowManualModal(false);
     }
   };
-
-  // Distance computation for display
-  const sessionDistanceKm =
-    gpsDistanceMeters > 50
-      ? (gpsDistanceMeters / 1000).toFixed(2)
-      : ((sessionSteps * 0.65) / 1000).toFixed(2);
 
   const totalDistanceTodayKm = ((todaySteps * 0.65) / 1000).toFixed(2);
 
@@ -310,12 +85,24 @@ export const StepTracker: React.FC = () => {
               <h2 className="font-display text-xl font-bold text-[#231426]">
                 StepTracker Movement Hub
               </h2>
-              <span className="rounded-full bg-amber-100 text-amber-900 border border-amber-200 px-2.5 py-0.5 text-[10px] font-bold">
-                {isTracking ? 'Active Movement' : 'Pedometer Ready'}
+              <span
+                className={`rounded-full border px-2.5 py-0.5 text-[10px] font-bold ${
+                  walkStatus === 'running'
+                    ? 'border-emerald-300 bg-emerald-50 text-emerald-800 animate-pulse'
+                    : walkStatus === 'paused'
+                    ? 'border-amber-300 bg-amber-50 text-amber-800'
+                    : 'border-slate-200 bg-slate-50 text-slate-600'
+                }`}
+              >
+                {walkStatus === 'running'
+                  ? 'Walking Active'
+                  : walkStatus === 'paused'
+                  ? 'Session Paused'
+                  : 'Pedometer Ready'}
               </span>
             </div>
             <p className="text-xs text-[#745f78] mt-0.5">
-              Powered by real DeviceMotion accelerometer and Geolocation GPS tracking.
+              Live step detection via real hardware motion sensors · Zero fake steps
             </p>
           </div>
         </div>
@@ -358,13 +145,13 @@ export const StepTracker: React.FC = () => {
           />
         </div>
 
-        <div className="mt-3 flex flex-wrap items-center justify-between text-xs text-[#745f78]">
+        <div className="mt-3 flex flex-wrap items-center justify-between text-xs text-[#745f78] gap-2">
           <div className="flex items-center gap-4">
             <span>
               <strong>Total Distance:</strong> ~{totalDistanceTodayKm} km
             </span>
             <span>
-              <strong>Active Time:</strong> {today.exerciseMin} mins
+              <strong>Active Movement:</strong> {today.exerciseMin} mins
             </span>
           </div>
           <span>
@@ -375,82 +162,184 @@ export const StepTracker: React.FC = () => {
         </div>
       </div>
 
-      {/* 3. Live Walking Session Tracker with DeviceMotion & Geolocation */}
+      {/* 3. Live Walking Session Tracker with Start, Pause, and Stop Controls */}
       <div className="rounded-3xl border-2 border-amber-200 bg-gradient-to-br from-amber-50/70 via-white to-amber-50/40 p-5 sm:p-6 shadow-soft">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-          <div className="space-y-1">
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-5">
+          <div className="space-y-2">
             <div className="flex flex-wrap items-center gap-2">
               <span className="rounded-full bg-amber-500 text-white px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider">
-                Live Session Tracker
+                Live Walking Session
               </span>
 
-              {/* Sensor Badge */}
-              <span className="rounded-full border border-amber-200 bg-white px-2 py-0.5 text-[10px] font-semibold text-amber-900">
-                {motionSensorStatus === 'granted'
-                  ? '📱 DeviceMotion Active'
-                  : geoStatus === 'active'
-                  ? '🛰️ Geolocation GPS Active'
-                  : '⏱️ Timer Mode'}
-              </span>
+              {/* Sensor Hardware Status Badge */}
+              {isDeviceMotionActive ? (
+                <span className="flex items-center gap-1 rounded-full border border-emerald-300 bg-emerald-50 px-2.5 py-0.5 text-[10px] font-bold text-emerald-800">
+                  <Zap className="h-3 w-3 text-emerald-600" />
+                  Motion Sensor Active
+                </span>
+              ) : sensorStatus === 'checking' ? (
+                <span className="flex items-center gap-1 rounded-full border border-sky-300 bg-sky-50 px-2.5 py-0.5 text-[10px] font-bold text-sky-800 animate-pulse">
+                  <Activity className="h-3 w-3 text-sky-600" />
+                  Calibrating Sensor...
+                </span>
+              ) : sensorStatus === 'unsupported' ? (
+                <button
+                  onClick={() => setShowSensorInfoModal(true)}
+                  className="flex items-center gap-1 rounded-full border border-slate-300 bg-white px-2.5 py-0.5 text-[10px] font-bold text-slate-700 hover:border-amber-400"
+                >
+                  <Smartphone className="h-3 w-3 text-amber-600" />
+                  No Mobile Sensor Detected · Tap Info
+                </button>
+              ) : sensorStatus === 'denied' ? (
+                <button
+                  onClick={requestPermission}
+                  className="flex items-center gap-1 rounded-full border border-rose-300 bg-rose-50 px-2.5 py-0.5 text-[10px] font-bold text-rose-700 hover:bg-rose-100"
+                >
+                  <AlertCircle className="h-3 w-3" />
+                  Permission Blocked · Tap to Retry
+                </button>
+              ) : (
+                <span className="flex items-center gap-1 rounded-full border border-slate-200 bg-white px-2.5 py-0.5 text-[10px] font-semibold text-slate-600">
+                  <Smartphone className="h-3 w-3" />
+                  Ready to Detect
+                </span>
+              )}
 
-              {currentSpeedKmh !== null && (
-                <span className="rounded-full bg-emerald-100 text-emerald-800 px-2 py-0.5 text-[10px] font-semibold">
-                  {currentSpeedKmh.toFixed(1)} km/h
+              {cadenceSpm > 0 && (
+                <span className="rounded-full bg-amber-100 border border-amber-200 px-2 py-0.5 text-[10px] font-bold text-amber-900">
+                  {cadenceSpm} steps/min
                 </span>
               )}
             </div>
 
-            <div className="mt-2 flex items-baseline gap-4">
-              <div className="font-mono text-4xl font-extrabold text-amber-950 sm:text-5xl">
-                {formatTimer(elapsedSec)}
+            {/* Live Timer and Step Counter */}
+            <div className="flex items-baseline gap-4 pt-1">
+              <div className="font-mono text-4xl font-extrabold text-amber-950 sm:text-5xl tabular-nums">
+                {formatTimer(walkSeconds)}
               </div>
-              <div className="text-xs text-[#745f78]">
-                <span className="font-bold text-amber-900 font-mono text-xl">{sessionSteps}</span> steps this walk (~{sessionDistanceKm} km)
+              <div>
+                <div className="flex items-baseline gap-1.5">
+                  <span className="font-mono text-2xl sm:text-3xl font-extrabold text-amber-900 tabular-nums">
+                    {sessionSteps}
+                  </span>
+                  <span className="text-xs font-bold text-[#745f78]">steps this walk</span>
+                </div>
+                <p className="text-[11px] text-[#745f78]">
+                  ~{distanceKm} km · {warmupActive ? '🌸 Warm-up pace' : cooldownActive ? '🌿 Cooldown pace' : 'Gentle walking'}
+                </p>
               </div>
             </div>
 
-            <p className="text-xs text-amber-900">
-              {isTracking
-                ? 'Strolling at your comfortable conversational pace · Listen to your body 💛'
-                : 'Ready for a breath of fresh air or an indoor stroll? Tap Start.'}
-            </p>
+            {/* Live Accelerometer Signal Bar (Proof of Real Motion) */}
+            {walkStatus === 'running' && isDeviceMotionActive && (
+              <div className="flex items-center gap-2 pt-1 text-xs text-[#745f78]">
+                <Activity className="h-3.5 w-3.5 text-emerald-600 animate-pulse" />
+                <span className="text-[11px] font-semibold">Motion Dynamics:</span>
+                <div className="h-2 w-24 overflow-hidden rounded-full bg-slate-200">
+                  <div
+                    className="h-full rounded-full bg-emerald-500 transition-all duration-100"
+                    style={{ width: `${Math.min(liveMagnitude * 30, 100)}%` }}
+                  />
+                </div>
+                <span className="font-mono text-[10px] text-slate-500">{liveMagnitude} m/s²</span>
+              </div>
+            )}
           </div>
 
-          {/* Controls */}
-          <div className="flex items-center gap-2">
-            {!isTracking ? (
+          {/* START, PAUSE, RESUME, AND STOP CONTROLS */}
+          <div className="flex flex-wrap items-center gap-2.5">
+            {walkStatus === 'idle' ? (
+              /* 1. START CONTROL */
               <button
-                onClick={elapsedSec > 0 ? handleResumeWalk : handleStartWalk}
-                className="flex items-center gap-2 rounded-2xl bg-amber-500 px-7 py-3 text-xs font-bold text-white shadow-soft hover:bg-amber-600 transition-transform active:scale-95"
+                onClick={startWalking}
+                className="flex items-center gap-2.5 rounded-2xl bg-amber-500 px-8 py-3.5 text-xs font-bold text-white shadow-soft hover:bg-amber-600 transition-all active:scale-95"
               >
                 <Play className="h-4 w-4 fill-white" />
-                <span>{elapsedSec > 0 ? 'Resume Walk' : 'Start Walking'}</span>
+                <span>Start Walking</span>
               </button>
-            ) : (
-              <button
-                onClick={handlePauseWalk}
-                className="flex items-center gap-2 rounded-2xl bg-[#231426] px-6 py-3 text-xs font-bold text-white shadow-soft hover:bg-[#3d2442] transition-transform active:scale-95"
-              >
-                <Pause className="h-4 w-4" />
-                <span>Pause</span>
-              </button>
-            )}
+            ) : walkStatus === 'running' ? (
+              /* 2. PAUSE AND STOP CONTROLS WHILE RUNNING */
+              <>
+                <button
+                  onClick={pauseWalking}
+                  className="flex items-center gap-2 rounded-2xl bg-[#231426] px-5 py-3 text-xs font-bold text-white shadow-soft hover:bg-[#3d2442] transition-all active:scale-95"
+                  title="Pause Walking Session"
+                >
+                  <Pause className="h-4 w-4" />
+                  <span>Pause</span>
+                </button>
 
-            {elapsedSec > 0 && (
-              <button
-                onClick={handleFinishWalk}
-                className="flex items-center gap-1.5 rounded-2xl border border-amber-300 bg-white px-5 py-3 text-xs font-bold text-amber-950 hover:bg-amber-100 transition-colors shadow-xs"
-              >
-                <CheckCircle2 className="h-4 w-4 text-emerald-600" />
-                <span>Finish & Save Log</span>
-              </button>
+                <button
+                  onClick={stopWalking}
+                  className="flex items-center gap-2 rounded-2xl border-2 border-emerald-600 bg-emerald-600 px-5 py-3 text-xs font-bold text-white shadow-soft hover:bg-emerald-700 transition-all active:scale-95"
+                  title="Stop and Save Walking Session"
+                >
+                  <Square className="h-4 w-4 fill-white" />
+                  <span>Stop & Save</span>
+                </button>
+              </>
+            ) : (
+              /* 3. RESUME AND STOP CONTROLS WHILE PAUSED */
+              <>
+                <button
+                  onClick={resumeWalking}
+                  className="flex items-center gap-2 rounded-2xl bg-amber-500 px-5 py-3 text-xs font-bold text-white shadow-soft hover:bg-amber-600 transition-all active:scale-95"
+                  title="Resume Walking Session"
+                >
+                  <Play className="h-4 w-4 fill-white" />
+                  <span>Resume Walk</span>
+                </button>
+
+                <button
+                  onClick={stopWalking}
+                  className="flex items-center gap-2 rounded-2xl border-2 border-emerald-600 bg-emerald-600 px-5 py-3 text-xs font-bold text-white shadow-soft hover:bg-emerald-700 transition-all active:scale-95"
+                  title="Finish and Save Walk"
+                >
+                  <CheckCircle2 className="h-4 w-4" />
+                  <span>Stop & Save</span>
+                </button>
+
+                <button
+                  onClick={resetSession}
+                  className="text-[11px] font-semibold text-slate-400 hover:text-rose-500 px-2 py-1 transition-colors"
+                  title="Discard this session"
+                >
+                  Discard
+                </button>
+              </>
             )}
           </div>
         </div>
 
-        {restTip && (
-          <div className="mt-4 rounded-xl border border-sky-200 bg-sky-50 p-2.5 text-xs font-semibold text-sky-900 animate-fadeIn">
-            {restTip}
+        {/* Rest tip during long walks */}
+        {restReminder && (
+          <div className="mt-4 rounded-2xl border border-sky-200 bg-sky-50 p-3 text-xs font-semibold text-sky-900 animate-fadeIn">
+            {restReminder}
+          </div>
+        )}
+
+        {/* Helpful error / Unsupported Device Notification */}
+        {errorMessage && (
+          <div className="mt-4 flex items-start gap-2.5 rounded-2xl border border-amber-300 bg-amber-50/90 p-3.5 text-xs text-amber-950">
+            <AlertCircle className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />
+            <div className="flex-1">
+              <p className="font-bold">Notice regarding step detection on this device:</p>
+              <p className="mt-0.5 text-[11px] leading-relaxed text-amber-900">{errorMessage}</p>
+              <div className="mt-2 flex items-center gap-2">
+                <button
+                  onClick={() => setShowManualModal(true)}
+                  className="rounded-xl bg-amber-600 px-3 py-1 font-bold text-white hover:bg-amber-700 text-[11px]"
+                >
+                  Log Steps Manually
+                </button>
+                <button
+                  onClick={() => setShowSensorInfoModal(true)}
+                  className="text-[11px] font-semibold text-amber-900 underline"
+                >
+                  How real step counting works
+                </button>
+              </div>
+            </div>
           </div>
         )}
       </div>
@@ -461,7 +350,7 @@ export const StepTracker: React.FC = () => {
           <h3 className="font-display text-base font-bold text-[#231426]">
             Today's Logged Walking Sessions ({sessions.length})
           </h3>
-          <span className="text-xs text-[#745f78]">Saved automatically to your health log</span>
+          <span className="text-xs text-[#745f78]">Saved automatically to your daily health log</span>
         </div>
 
         {sessions.length === 0 ? (
@@ -487,7 +376,7 @@ export const StepTracker: React.FC = () => {
                         {s.steps.toLocaleString()} steps
                       </span>
                       <span className="rounded-full bg-white px-2 py-0.5 text-[10px] font-semibold text-slate-600 border border-[#f0dfea]">
-                        {s.mode === 'manual' ? 'Manual Entry' : s.mode === 'sensor' ? 'Sensor / GPS' : 'Timer Log'}
+                        {s.mode === 'manual' ? 'Manual Entry' : s.mode === 'sensor' ? 'Motion Sensor' : 'Timer Log'}
                       </span>
                     </div>
                     <p className="text-[#745f78] text-[11px] mt-0.5">
@@ -518,7 +407,7 @@ export const StepTracker: React.FC = () => {
               </h3>
             </div>
             <p className="text-xs text-[#745f78] mb-4">
-              Enter steps counted from a smartwatch, fitness tracker, or your daily stroll.
+              Enter steps counted by your Apple Watch, Fitbit, Garmin, or pedometer.
             </p>
 
             <form onSubmit={handleManualSubmit} className="space-y-4">
@@ -559,7 +448,7 @@ export const StepTracker: React.FC = () => {
                 </label>
                 <input
                   type="text"
-                  placeholder="e.g. Park walk with partner"
+                  placeholder="e.g. Morning park stroll"
                   value={manualNotes}
                   onChange={(e) => setManualNotes(e.target.value)}
                   className="w-full rounded-2xl border border-[#f0dfea] bg-[#fff8fb] p-2.5 text-xs text-[#231426] focus:border-[#f075aa] focus:bg-white focus:outline-none"
@@ -583,6 +472,57 @@ export const StepTracker: React.FC = () => {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* 6. Sensor Info & Authenticity Modal */}
+      {showSensorInfoModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[#231426]/60 backdrop-blur-xs animate-fadeIn">
+          <div className="w-full max-w-md rounded-3xl border border-[#f0dfea] bg-white p-6 shadow-2xl space-y-4">
+            <div className="flex items-center gap-2.5">
+              <span className="flex h-9 w-9 items-center justify-center rounded-2xl bg-amber-50 text-amber-600">
+                <ShieldCheck className="h-5 w-5" />
+              </span>
+              <div>
+                <h3 className="font-display text-lg font-bold text-[#231426]">
+                  Real Step Counting & Sensors
+                </h3>
+                <p className="text-[11px] text-[#745f78]">Authentic Maternal Health Tracking</p>
+              </div>
+            </div>
+
+            <div className="space-y-3 text-xs text-[#4a344d] leading-relaxed">
+              <div className="rounded-2xl bg-amber-50/60 border border-amber-200 p-3">
+                <span className="font-bold text-amber-900 block mb-1">
+                  1. How real steps are counted:
+                </span>
+                MamaFit uses your mobile device's physical accelerometer (`DeviceMotionEvent`) to detect actual vertical heel-strike impacts and cadence while you walk.
+              </div>
+
+              <div className="rounded-2xl bg-slate-50 border border-slate-200 p-3">
+                <span className="font-bold text-slate-900 block mb-1">
+                  2. Why desktop laptops don't count steps:
+                </span>
+                Desktop computers and most laptops lack accelerometer sensors. When using MamaFit on a computer, open the app on your smartphone over HTTPS or use "Manual Step Entry" to enter steps recorded by your wearable tracker.
+              </div>
+
+              <div className="rounded-2xl bg-emerald-50 border border-emerald-200 p-3">
+                <span className="font-bold text-emerald-900 block mb-1">
+                  3. Zero Fake Steps Guarantee:
+                </span>
+                MamaFit never fakes or randomly increments step counts. Every step recorded by the live tracker corresponds to real physical motion cycles.
+              </div>
+            </div>
+
+            <div className="flex justify-end pt-2">
+              <button
+                onClick={() => setShowSensorInfoModal(false)}
+                className="rounded-2xl bg-amber-500 px-6 py-2.5 text-xs font-bold text-white shadow-soft hover:bg-amber-600"
+              >
+                Got It
+              </button>
+            </div>
           </div>
         </div>
       )}
